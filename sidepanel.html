@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Can I Apply?</title>
+  <style>
+    :root {
+      --primary-600: #4f46e5;
+      --primary-700: #4338ca;
+      --primary-50: #eef2ff;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --green-600: #16a34a;
+      --green-50: #f0fdf4;
+      --orange-600: #ea580c;
+      --orange-50: #fff7ed;
+      --red-600: #dc2626;
+      --red-50: #fef2f2;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 400px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: white;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+      color: white;
+      padding: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .header-title {
+      flex: 1;
+    }
+
+    .header-title h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .header-title p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .badge {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .header-description {
+      font-size: 13px;
+      line-height: 1.6;
+      opacity: 0.95;
+    }
+
+    /* Main Content */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      background: var(--primary-600);
+      color: white;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* File Upload */
+    .file-upload {
+      position: relative;
+      border: 2px dashed var(--gray-300);
+      border-radius: 12px;
+      padding: 16px;
+      background: var(--gray-50);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .file-upload:hover {
+      border-color: var(--primary-600);
+      background: var(--primary-50);
+    }
+
+    .file-upload input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .file-upload-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .upload-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--gray-200);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-600);
+    }
+
+    .upload-text {
+      font-size: 13px;
+      color: var(--gray-600);
+      text-align: center;
+    }
+
+    .upload-text strong {
+      color: var(--primary-600);
+      font-weight: 600;
+    }
+
+    /* Textarea */
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 12px;
+      border: 1px solid var(--gray-300);
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: ui-monospace, 'Courier New', monospace;
+      resize: vertical;
+      background: var(--gray-50);
+      color: var(--gray-700);
+      transition: all 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary-600);
+      background: white;
+      box-shadow: 0 0 0 3px var(--primary-50);
+    }
+
+    textarea[readonly] {
+      cursor: default;
+    }
+
+    /* Buttons */
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 10px;
+    }
+
+    button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    #analyze {
+      background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    #analyze:hover:not(:disabled) {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-1px);
+    }
+
+    #analyze:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #reset {
+      background: white;
+      color: var(--gray-700);
+      border: 1px solid var(--gray-300);
+    }
+
+    #reset:hover {
+      background: var(--gray-50);
+      border-color: var(--gray-400);
+    }
+
+    /* Result Section */
+    #result {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .result-placeholder {
+      padding: 24px;
+      text-align: center;
+      color: var(--gray-500);
+      background: var(--gray-50);
+      border: 1px dashed var(--gray-300);
+      border-radius: 8px;
+    }
+
+    .result-card {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .result-header {
+      background: linear-gradient(to bottom, var(--gray-50), white);
+      padding: 16px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .result-match {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .match-score {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .result-match-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-500);
+      font-weight: 600;
+    }
+
+    .result-match-value {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .result-title-green { color: var(--green-600); }
+    .result-title-orange { color: var(--orange-600); }
+    .result-title-red { color: var(--red-600); }
+
+    .result-decision {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--green-50);
+      color: var(--green-600);
+      border: 1px solid rgba(22, 163, 74, 0.2);
+    }
+
+    .result-overview {
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--gray-700);
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .result-line {
+      margin-bottom: 8px;
+    }
+
+    .result-line-bullet {
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .result-line-bullet::before {
+      content: "•";
+      position: absolute;
+      left: 8px;
+      color: var(--gray-400);
+      font-weight: 700;
+    }
+
+    .result-line-prob {
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+
+    .result-line-prob-red {
+      background: var(--red-50);
+      color: var(--red-600);
+    }
+
+    .result-line-prob-orange {
+      background: var(--orange-50);
+      color: var(--orange-600);
+    }
+
+    .result-line-prob-green {
+      background: var(--green-50);
+      color: var(--green-600);
+    }
+
+    /* Accordion */
+    .accordion {
+      background: white;
+    }
+
+    .accordion-item {
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .accordion-item:last-child {
+      border-bottom: none;
+    }
+
+    .accordion-header {
+      width: 100%;
+      padding: 14px 16px;
+      background: white;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+
+    .accordion-header:hover {
+      background: var(--gray-50);
+    }
+
+    .accordion-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .accordion-title span {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .accordion-badge {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-500);
+      background: var(--gray-100);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .accordion-chevron {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-400);
+      transition: transform 0.2s;
+    }
+
+    .accordion-item.is-open .accordion-chevron {
+      transform: rotate(180deg);
+    }
+
+    .accordion-panel {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      padding: 0 16px;
+    }
+
+    .accordion-item.is-open .accordion-panel {
+      padding: 0 16px 14px;
+    }
+
+    /* Footer Note */
+    .footer-note {
+      background: var(--gray-50);
+      border-top: 1px solid var(--gray-200);
+      padding: 16px 20px;
+    }
+
+    .footer-note-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-500);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .footer-note-text {
+      font-size: 12px;
+      color: var(--gray-600);
+      line-height: 1.5;
+    }
+
+    /* Scrollbar */
+    .content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .content::-webkit-scrollbar-track {
+      background: var(--gray-100);
+    }
+
+    .content::-webkit-scrollbar-thumb {
+      background: var(--gray-300);
+      border-radius: 4px;
+    }
+
+    .content::-webkit-scrollbar-thumb:hover {
+      background: var(--gray-400);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-top">
+        <div class="logo">CA</div>
+        <div class="header-title">
+          <h1>Can I Apply?</h1>
+          <p>AI-Powered Job Match Analysis</p>
+        </div>
+        <span class="badge">Pro</span>
+      </div>
+      <p class="header-description">
+        Upload your resume and instantly discover how well you match the job requirements with AI-driven insights.
+      </p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <div class="section" id="uploadSection">
+        <label class="section-label">
+          <span class="step-number">1</span>
+          Upload Resume
+        </label>
+        <div class="file-upload">
+          <input type="file" id="fileInput" accept=".pdf">
+          <div class="file-upload-content">
+            <div class="upload-icon">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+            </div>
+            <div class="upload-text">
+              <strong>Click to upload</strong> or drag and drop<br>
+              <span style="font-size: 11px;">PDF files only</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="previewSection">
+        <label class="section-label">
+          <span class="step-number">2</span>
+          Resume Preview
+        </label>
+        <textarea id="resumeBox" readonly placeholder="Your resume text will appear here after upload..."></textarea>
+      </div>
+
+      <div class="section">
+        <div class="button-group">
+          <button id="reset">Replace resume</button>
+          <button id="analyze">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+            </svg>
+            Analyze Match
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div id="result" class="result-placeholder">
+          Upload your resume and click "Analyze Match" to see your compatibility score and detailed insights.
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-note">
+      <div class="footer-note-title">Important Note</div>
+      <p class="footer-note-text">
+        AI-generated insights are for guidance only and don't guarantee job outcomes. Always review the role thoroughly before applying.
+      </p>
+    </div>
+  </div>
+
+  <script src="pdf.min.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
