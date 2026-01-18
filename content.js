@@ -89,6 +89,24 @@ function showResumeModal(data) {
 
   const shadow = root.attachShadow({ mode: "open" });
 
+  const resumeStyles = `
+    body { font-family: 'Inter', -apple-system, sans-serif; background: white; margin: 0; padding: 0.5in 0.75in; }
+    .header-content { text-align: center; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1.5rem; }
+    .header-content h1 { font-size: 24pt; margin: 0; color: #0f172a; }
+    .contact-line { display: flex; justify-content: center; gap: 0.75rem; font-size: 10pt; color: #4b5563; margin-top: 0.5rem; }
+    h2 { font-size: 13pt; text-transform: uppercase; color: #1e40af; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.25rem; margin: 1.5rem 0 0.75rem 0; }
+    p { margin-bottom: 0.5rem; text-align: justify; font-size: 10.5pt; line-height: 1.5; }
+    ul { list-style: disc; padding-left: 1.2rem; }
+    li { margin-bottom: 0.25rem; font-size: 10.5pt; }
+    .entry { margin-bottom: 1rem; }
+    .entry-header { display: flex; justify-content: space-between; align-items: baseline; }
+    .entry-title { font-weight: 700; font-size: 11pt; }
+    .entry-subtitle { font-style: italic; color: #4b5563; }
+    .skills-section { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .skill-pill { background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 9pt; border: 1px solid #e5e7eb; }
+    @page { margin: 0.5in; }
+  `;
+
   const style = document.createElement("style");
   style.textContent = `
     :host {
@@ -172,28 +190,7 @@ function showResumeModal(data) {
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
       margin: 0 auto;
     }
-    /* Resume specific styles copied from resume.css for the content script preview */
-    .header-content { text-align: center; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1.5rem; }
-    .header-content h1 { font-size: 24pt; margin: 0; color: #0f172a; }
-    .contact-line { display: flex; justify-content: center; gap: 0.75rem; font-size: 10pt; color: #4b5563; margin-top: 0.5rem; }
-    h2 { font-size: 13pt; text-transform: uppercase; color: #1e40af; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.25rem; margin: 1.5rem 0 0.75rem 0; }
-    p { margin-bottom: 0.5rem; text-align: justify; font-size: 10.5pt; }
-    ul { list-style: disc; padding-left: 1.2rem; }
-    li { margin-bottom: 0.25rem; font-size: 10.5pt; }
-    .entry { margin-bottom: 1rem; }
-    .entry-header { display: flex; justify-content: space-between; align-items: baseline; }
-    .entry-title { font-weight: 700; font-size: 11pt; }
-    .entry-subtitle { font-style: italic; color: #4b5563; }
-    .skills-section { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .skill-pill { background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 9pt; border: 1px solid #e5e7eb; }
-
-    @media print {
-      .modal-overlay { position: static; background: white; }
-      .modal-content { width: 100%; height: auto; box-shadow: none; border: none; }
-      .modal-header { display: none; }
-      .modal-body { padding: 0; background: white; }
-      .page { box-shadow: none; padding: 0; }
-    }
+    ${resumeStyles}
   `;
 
   const overlay = document.createElement("div");
@@ -221,23 +218,51 @@ function showResumeModal(data) {
   shadow.appendChild(overlay);
   overlay.appendChild(content);
 
-  shadow.getElementById("ca-close-btn").onclick = () => root.remove();
-  shadow.getElementById("ca-download-btn").onclick = () => {
-    // We use window.print() but it might print the whole page. 
-    // To print only the modal, we'd need a more complex solution or a temporary iframe.
-    // However, the @media print in shadow DOM might not be enough.
-    // Let's use the simplest approach for now which is window.print() and see if @media print works.
-    window.print();
-  };
-
-  // Prevent background scroll
-  document.body.style.overflow = "hidden";
   const cleanup = () => {
     document.body.style.overflow = "";
     root.remove();
   };
+
   shadow.getElementById("ca-close-btn").onclick = cleanup;
   overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
+
+  shadow.getElementById("ca-download-btn").onclick = () => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "100%";
+    iframe.style.bottom = "100%";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Resume</title>
+          <style>${resumeStyles}</style>
+        </head>
+        <body>
+          ${getResumeHTML(data)}
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    iframe.onload = () => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => {
+        iframe.remove();
+      }, 500);
+    };
+  };
+
+  // Prevent background scroll
+  document.body.style.overflow = "hidden";
 }
 
 function getResumeHTML(data) {
