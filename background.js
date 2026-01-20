@@ -64,30 +64,80 @@ async function analyze(jd, resume) {
         { role: "system", content: "You are an ATS resume evaluator." },
         {
           role: "user",
-          content: `
+         content: `
 You are a STRICT ATS + Recruiter Intelligence Engine.
 
-CRITICAL RULES:
-1. The input below starts with "Job Title: <title>". Extract the EXACT job title from that line.
-2. Determine "Job Domain" ONLY from that extracted job title.
-3. Do NOT infer Job Domain from the job description body or resume content.
-4. If "Job Title:" line is missing or empty, state Job Domain as "Unknown".
+CRITICAL RULES FOR DOMAIN EXTRACTION:
 
-Scoring Rules:
-- Domain mismatch → Match MUST be below 35%
-- Senior role without leadership/system design → penalize heavily
-- Missing core job skills → reduce score significantly
+1. RESUME DOMAIN:
+   - Analyze the resume and identify the candidate's PRIMARY domain/specialization
+   - Examples: "Frontend Developer", "Backend Engineer", "Full Stack Developer", "DevOps Engineer", "Data Scientist"
 
-Return output ONLY in the following format.
+2. JOB DOMAIN:
+   - Read the ENTIRE job description carefully
+   - Identify what type of role this actually is based on:
+     * Required skills and technologies
+     * Responsibilities mentioned
+     * Experience level expectations
+   - Extract the CORE DOMAIN (e.g., "Software Engineer", "Full Stack Developer", "Backend Developer")
+   
+3. JOB TITLE:
+   - Keep the job title as-is for reference (e.g., "Remote Software Developer (Go)")
+
+4. DOMAIN ALIGNMENT CALCULATION:
+   - Compare Resume Domain vs Job Domain
+   - Consider:
+     * Is the candidate's specialization (Frontend/Backend/Full Stack/etc.) aligned with job requirements?
+     * Does the candidate have experience in the PRIMARY technologies required?
+     * Does their tech stack overlap with job requirements?
+   
+   ALIGNMENT SCORING GUIDE:
+   - 80-100%: Perfect domain match + has required tech stack
+   - 50-79%: Same general domain but missing some key technologies
+   - 30-49%: Partial overlap (e.g., Frontend dev applying for Full Stack role)
+   - 0-29%: Significant mismatch (e.g., Frontend-only dev for Backend/Go role)
+
+EXAMPLES:
+
+Example 1:
+Job Title: "Remote Software Developer (Go)"
+Job Description: Requires Go, Docker, backend systems, full-stack work
+Job Domain: "Full Stack Developer (Go/Backend focused)"
+Resume Domain: "Frontend Developer (React/JavaScript)"
+Alignment: 25% - Wrong specialization, no backend/Go experience
+
+Example 2:
+Job Title: "Senior Backend Engineer"
+Job Description: Requires Python, microservices, AWS, system design
+Job Domain: "Backend Engineer (Python)"
+Resume Domain: "Backend Engineer (Python, AWS)"
+Alignment: 90% - Perfect match
+
+Example 3:
+Job Title: "Full Stack Developer"
+Job Description: Requires React, Node.js, MongoDB
+Job Domain: "Full Stack Developer (MERN Stack)"
+Resume Domain: "Full Stack Developer (React, Node.js)"
+Alignment: 85% - Strong match, minor gaps
+
+SCORING RULES:
+- Domain Alignment is calculated FIRST based on role type and tech stack match
+- Overall Match % considers: Domain Alignment + experience level + specific skills + seniority
+- Low Domain Alignment (below 50%) → Overall Match MUST be below 40%
+- High Domain Alignment but missing key skills → Overall Match reduced accordingly
+- Senior role without leadership/system design → penalize overall Match score
+
+Return output ONLY in the following format:
 
 Match: <exact number>%
-
 Decision: Apply / Improve / Invalid Domain
 
 Domain Identity Score:
-Resume Domain: <detected role from resume>
-Job Domain: <role extracted from Job Title line ONLY>
+Resume Domain: <candidate's primary specialization with main tech stack>
+Job Domain: <actual role type based on description analysis with key technologies>
+Job Title: <exact title from job posting>
 Alignment: <exact number>%
+Alignment Reason: <1-2 line explanation of why this alignment score>
 
 Recruiter Rejection Simulator:
 - bullets

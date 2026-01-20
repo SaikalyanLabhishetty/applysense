@@ -147,7 +147,7 @@ chrome.runtime.onMessage.addListener(msg => {
 });
 
 function renderHTML(text, isEasyApply) {
-  if (!text.includes("Job Domain:") && !text.includes("Decision:") && !text.includes("Match:")) {
+  if (!text.includes("Job Domain:") && !text.includes("Decision:") && !text.includes("Match:") && !text.includes("Alignment:")) {
     // Error / No Job Description State
     return `
       <div class="result-card">
@@ -171,7 +171,7 @@ function renderHTML(text, isEasyApply) {
 
   text = text.replace(/\r\n/g, "\n").replace(/[^\x00-\x7F]+/g, "");
 
-  const matchNum = parseInt(text.match(/Match:\s*(\d+)%/i)?.[1] || 0);
+  const matchNum = parseInt(text.match(/(Match|Alignment):\s*(\d+)%/i)?.[2] || 0);
 
   let colorClass = "score-green";
   if (matchNum < 35) colorClass = "score-red";
@@ -211,11 +211,22 @@ function renderHTML(text, isEasyApply) {
   let currentSection = "";
   let decisionLine = "";
 
+  // New fields extraction
+  let resumeDomain = clean(text.match(/Resume Domain:\s*(.*)/i)?.[1]);
+  let jobDomain = clean(text.match(/Job Domain:\s*(.*)/i)?.[1]);
+  let jobTitle = clean(text.match(/Job Title:\s*(.*)/i)?.[1]);
+  let alignmentReason = clean(text.match(/Alignment Reason:\s*(.*)/i)?.[1]);
+
   for (let raw of lines) {
     let line = clean(raw);
     if (!line) continue;
 
-    if (/^Match:/i.test(line)) continue;
+    if (/^(Match|Alignment):/i.test(line)) continue;
+    if (/^Resume Domain:/i.test(line)) continue;
+    if (/^Job Domain:/i.test(line)) continue;
+    if (/^Job Title:/i.test(line)) continue;
+    if (/^Alignment Reason:/i.test(line)) continue;
+    if (/^Domain Identity Score:/i.test(line)) continue; // Handled as section but also key
 
     if (/^Decision:/i.test(line)) {
       decisionLine = line.replace(/^Decision:\s*/i, "").trim();
@@ -299,6 +310,20 @@ function renderHTML(text, isEasyApply) {
   }
 
   html += '</div>'; // end header
+
+  // Comparison Summary Section
+  if (jobTitle || resumeDomain || jobDomain || alignmentReason) {
+    html += `
+      <div style="padding: 1.25rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+        ${jobTitle ? `<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Job Role</div><div style="font-size: 0.95rem; font-weight: 600; color: #1e293b;">${jobTitle}</div></div>` : ''}
+        <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem;">
+          ${resumeDomain ? `<div style="flex: 1;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Resume Domain</div><div style="font-size: 0.8125rem; font-weight: 500; color: #475569; background: #fff; padding: 0.4rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px;">${resumeDomain}</div></div>` : ''}
+          ${jobDomain ? `<div style="flex: 1;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Job Domain</div><div style="font-size: 0.8125rem; font-weight: 500; color: #475569; background: #fff; padding: 0.4rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px;">${jobDomain}</div></div>` : ''}
+        </div>
+        ${alignmentReason ? `<div style="font-size: 0.8125rem; line-height: 1.5; color: #475569; font-style: italic; border-left: 3px solid #3b82f6; padding-left: 0.75rem; margin-top: 0.5rem;">${alignmentReason}</div>` : ''}
+      </div>
+    `;
+  }
 
   // Intro/Overview part
   if (introLines.length) {
