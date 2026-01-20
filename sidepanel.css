@@ -87,6 +87,9 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
 }
 
 .brand {
@@ -115,6 +118,7 @@ body {
     font-weight: 700;
     letter-spacing: -0.025em;
     line-height: 1.2;
+    color: white;
 }
 
 .brand-text p {
@@ -138,7 +142,7 @@ body {
 }
 
 .header-desc {
-    margin-top: 1rem;
+    margin-top: 0;
     font-size: 0.8125rem;
     opacity: 0.9;
     line-height: 1.4;
@@ -601,6 +605,7 @@ textarea:focus {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -627,8 +632,15 @@ textarea:focus {
 }
 
 @keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
 }
 
 .walkthrough-header h2 {
