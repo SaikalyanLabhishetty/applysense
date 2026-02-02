@@ -71,8 +71,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "GET_JD") {
     // Check if user is on a search results page
+    // Check if user is on a search results page
     const url = window.location.href;
-    const isSearchPage = (url.includes("/jobs/search/") || url.includes("search-results")) && !url.includes("/view/") && !url.includes("currentJobId=");
+    let isSearchPage = false;
+
+    if (url.includes("linkedin.com")) {
+      isSearchPage = (url.includes("/jobs/search/") || url.includes("search-results")) && !url.includes("/view/") && !url.includes("currentJobId=");
+    }
 
     if (isSearchPage) {
       sendResponse({ jd: "", error: "SEARCH_PAGE" });
@@ -80,10 +85,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     }
 
     try {
-      const jd = getJD();
-      const isEasyApply = checkEasyApply();
+      let jd = "";
+      let isEasyApply = false;
+
+      if (url.includes("naukri.com")) {
+        jd = getNaukriJD();
+        isEasyApply = false;
+      } else {
+        // Default to LinkedIn
+        jd = getJD();
+        isEasyApply = checkEasyApply();
+      }
+
       sendResponse({ jd: jd, isEasyApply: isEasyApply });
     } catch (error) {
+      console.error("Error getting JD:", error);
       sendResponse({ jd: "", isEasyApply: false });
     }
   }

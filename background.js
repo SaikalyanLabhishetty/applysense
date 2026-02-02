@@ -11,8 +11,8 @@ chrome.runtime.onMessage.addListener(async (msg) => {
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab?.url?.includes("linkedin.com")) {
-      chrome.runtime.sendMessage({ type: "RESULT", text: "Match: 0%\nDecision: Invalid Page\n\nPlease Go to LinkedIn:\n- This extension only works on LinkedIn Job pages\n- Navigate to linkedin.com/jobs to use" });
+    if (!tab?.url?.includes("linkedin.com") && !tab?.url?.includes("naukri.com")) {
+      chrome.runtime.sendMessage({ type: "RESULT", text: "Match: 0%\nDecision: Invalid Page\n\nPlease Go to LinkedIn or Naukri:\n- This extension works on LinkedIn and Naukri Job pages\n- Navigate to a job page to use" });
       return;
     }
 
@@ -20,7 +20,7 @@ chrome.runtime.onMessage.addListener(async (msg) => {
       chrome.tabs.sendMessage(tabId, { type: "GET_JD" }, async res => {
         if (chrome.runtime.lastError) {
           // If we are on a valid LinkedIn job view page, don't show the error as requested by the user.
-          if (tab.url.includes("/jobs/view/")) {
+          if (tab.url.includes("/jobs/view/") || tab.url.includes("job-listings")) {
             console.log("Suppressed lastError because user is on a valid /jobs/view/ URL");
             return;
           }
@@ -44,7 +44,7 @@ chrome.runtime.onMessage.addListener(async (msg) => {
           }
 
           if (!jd.trim() || jd.length < 100) {
-            chrome.runtime.sendMessage({ type: "RESULT", text: "Match: 0%\nDecision: Invalid Domain\n\nJob Description Not Found:\n- Please make sure you're on a job listing page\n- Try refreshing the page and clicking 'Analyze Match' again\n- LinkedIn job description might not be loaded yet" });
+            chrome.runtime.sendMessage({ type: "RESULT", text: "Match: 0%\nDecision: Invalid Domain\n\nJob Description Not Found:\n- Please make sure you're on a job listing page\n- Try refreshing the page and clicking 'Analyze Match' again\n- Job description might not be loaded yet" });
             return;
           }
 

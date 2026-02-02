@@ -13,7 +13,8 @@
     "https://api.mistral.ai/*",
     "https://api.openai.com/*",
     "https://api.groq.com/*",
-    "*://*.linkedin.com/*"
+    "*://*.linkedin.com/*",
+    "*://*.naukri.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -28,6 +29,7 @@
       ],
       "js": [
         "html2pdf.bundle.min.js",
+        "naukri.js",
         "content.js"
       ]
     }

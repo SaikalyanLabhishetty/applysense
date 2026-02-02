@@ -87,9 +87,6 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 0.75rem;
-    margin-bottom: 0.75rem;
 }
 
 .brand {
@@ -141,15 +138,7 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.header-desc {
-    margin-top: 0;
-    font-size: 0.8125rem;
-    opacity: 0.9;
-    line-height: 1.4;
-    position: relative;
-    z-index: 10;
-    max-width: 90%;
-}
+
 
 /* Main Content */
 .content {
