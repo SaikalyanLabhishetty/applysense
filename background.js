@@ -1,6 +1,5 @@
-const MISTRAL_API_KEY = "";
-const OPEN_AI_KEY = "";
-const GROQ_API_KEY = "";
+// Replace this with your actual Vercel deployment URL
+const VERCEL_PROXY_URL = "https://your-app-name.vercel.app/api/proxy";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -59,10 +58,9 @@ chrome.runtime.onMessage.addListener(async (msg) => {
 });
 
 async function analyze(jd, resume) {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const response = await fetch(VERCEL_PROXY_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${GROQ_API_KEY}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -241,10 +239,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 async function generateResumeJSON(jd, resume) {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const response = await fetch(VERCEL_PROXY_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${GROQ_API_KEY}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -320,10 +317,9 @@ Return content in this JSON structure:
 }
 
 async function suggestAnswer(question, resume) {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const response = await fetch(VERCEL_PROXY_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${GROQ_API_KEY}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({

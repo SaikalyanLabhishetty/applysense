@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Can I Apply?",
+  "name": "ApplySense",
   "version": "2.0",
   "description": "Job match analyzer in sidebar",
   "permissions": [
