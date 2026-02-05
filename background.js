@@ -1,5 +1,5 @@
 // Replace this with your actual Vercel deployment URL
-const VERCEL_PROXY_URL = "https://your-app-name.vercel.app/api/proxy";
+const VERCEL_PROXY_URL = "https://applysense-six.vercel.app/api/proxy";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
