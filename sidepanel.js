@@ -177,7 +177,7 @@ function renderHTML(text, isEasyApply) {
 
   const clean = (s) => {
     if (!s) return "";
-    return s.replace(/\*\*/g, "").trim();
+    return s.replace(/^#+\s*/, "").replace(/\*\*/g, "").trim();
   };
 
   text = text.replace(/\r\n/g, "\n").replace(/[^\x00-\x7F]+/g, "");
@@ -191,7 +191,9 @@ function renderHTML(text, isEasyApply) {
   const lines = text.split("\n");
 
   const sectionOrder = [
-    "Domain Identity Score",
+    "Domain Analysis",
+    "Mandatory Skills Check",
+    "Experience Relevance",
     "Recruiter Rejection Simulator",
     "Resume Personality Analysis",
     "ATS Keyword Density Map",
@@ -204,7 +206,9 @@ function renderHTML(text, isEasyApply) {
   ];
 
   const sectionMap = {
-    "Domain Identity Score": "Domain Identity Score",
+    "Domain Analysis": "Domain Analysis",
+    "Mandatory Skills Check": "Mandatory Skills Check",
+    "Experience Relevance": "Experience Relevance",
     "Recruiter Rejection Simulator": "Recruiter Rejection Simulator",
     "Resume Personality Analysis": "Resume Personality Analysis",
     "ATS Keyword Density Map": "ATS Keyword Density Map",
@@ -225,19 +229,19 @@ function renderHTML(text, isEasyApply) {
   // New fields extraction
   let resumeDomain = clean(text.match(/Resume Domain:\s*(.*)/i)?.[1]);
   let jobDomain = clean(text.match(/Job Domain:\s*(.*)/i)?.[1]);
-  let jobTitle = clean(text.match(/Job Title:\s*(.*)/i)?.[1]);
-  let alignmentReason = clean(text.match(/Alignment Reason:\s*(.*)/i)?.[1]);
+  let domainMatch = clean(text.match(/Domain Match:\s*(.*)/i)?.[1]);
+  let domainMatchScore = clean(text.match(/Domain Match Score:\s*(.*)/i)?.[1]);
 
   for (let raw of lines) {
     let line = clean(raw);
     if (!line) continue;
 
-    if (/^(Match|Alignment):/i.test(line)) continue;
+    if (/^Match:/i.test(line)) continue;
     if (/^Resume Domain:/i.test(line)) continue;
     if (/^Job Domain:/i.test(line)) continue;
-    if (/^Job Title:/i.test(line)) continue;
-    if (/^Alignment Reason:/i.test(line)) continue;
-    if (/^Domain Identity Score:/i.test(line)) continue; // Handled as section but also key
+    if (/^Domain Match:/i.test(line)) continue;
+    if (/^Domain Match Score:/i.test(line)) continue;
+    if (/^Domain Analysis:/i.test(line)) continue; // Handled as section header
 
     if (/^Decision:/i.test(line)) {
       decisionLine = line.replace(/^Decision:\s*/i, "").trim();
@@ -321,15 +325,17 @@ function renderHTML(text, isEasyApply) {
   html += '</div>'; // end header
 
   // Comparison Summary Section
-  if (jobTitle || resumeDomain || jobDomain || alignmentReason) {
+  if (resumeDomain || jobDomain || domainMatch || domainMatchScore) {
     html += `
       <div style="padding: 1.25rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-        ${jobTitle ? `<div style="margin-bottom: 0.75rem;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Job Role</div><div style="font-size: 0.95rem; font-weight: 600; color: #1e293b;">${jobTitle}</div></div>` : ''}
         <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem;">
           ${resumeDomain ? `<div style="flex: 1;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Resume Domain</div><div style="font-size: 0.8125rem; font-weight: 500; color: #475569; background: #fff; padding: 0.4rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px;">${resumeDomain}</div></div>` : ''}
           ${jobDomain ? `<div style="flex: 1;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Job Domain</div><div style="font-size: 0.8125rem; font-weight: 500; color: #475569; background: #fff; padding: 0.4rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px;">${jobDomain}</div></div>` : ''}
         </div>
-        ${alignmentReason ? `<div style="font-size: 0.8125rem; line-height: 1.5; color: #475569; font-style: italic; border-left: 3px solid #3b82f6; padding-left: 0.75rem; margin-top: 0.5rem;">${alignmentReason}</div>` : ''}
+        <div style="display: flex; gap: 1rem;">
+          ${domainMatch ? `<div style="flex: 1;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Domain Match</div><div style="font-size: 0.8125rem; font-weight: 600; color: #1e293b;">${domainMatch}</div></div>` : ''}
+          ${domainMatchScore ? `<div style="flex: 1;"><div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 700; margin-bottom: 0.15rem;">Domain Match Score</div><div style="font-size: 0.8125rem; font-weight: 600; color: #1e293b;">${domainMatchScore}</div></div>` : ''}
+        </div>
       </div>
     `;
   }

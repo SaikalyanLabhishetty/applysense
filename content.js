@@ -334,18 +334,19 @@ function showResumeModal(data) {
   const resumeStyles = `
     .page { font-family: 'Inter', -apple-system, sans-serif; background: white; margin: 0; padding: 0.5in 0.75in; min-height: 10in; box-sizing: border-box; }
     .header-content { text-align: center; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1.5rem; }
-    .header-content h1 { font-size: 24pt; margin: 0; color: #0f172a; }
-    .contact-line { display: flex; justify-content: center; gap: 0.75rem; font-size: 10pt; color: #4b5563; margin-top: 0.5rem; }
-    h2 { font-size: 13pt; text-transform: uppercase; color: #1e40af; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.25rem; margin: 1.5rem 0 0.75rem 0; }
-    p { margin-bottom: 0.5rem; text-align: justify; font-size: 10.5pt; line-height: 1.5; }
-    ul { list-style: disc; padding-left: 1.2rem; }
-    li { margin-bottom: 0.25rem; font-size: 10.5pt; }
-    .entry { margin-bottom: 1rem; }
-    .entry-header { display: flex; justify-content: space-between; align-items: baseline; }
-    .entry-title { font-weight: 700; font-size: 11pt; }
-    .entry-subtitle { font-style: italic; color: #4b5563; }
-    .skills-section { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .skill-pill { background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 9pt; border: 1px solid #e5e7eb; }
+    .header-content h1 { font-size: 24pt; margin: 0; color: #0f172a; line-height: 1.2; }
+    .contact-line { display: flex; justify-content: center; gap: 0.75rem; font-size: 10pt; color: #4b5563; margin-top: 0.5rem; line-height: 1.5; }
+    h2 { font-size: 13pt; text-transform: uppercase; color: #1e40af; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.25rem; margin: 1.5rem 0 0.75rem 0; letter-spacing: 0.05em; }
+    p { margin-bottom: 0.5rem; text-align: justify; font-size: 10.5pt; line-height: 1.6; color: #374151; }
+    ul { list-style: disc; padding-left: 1.2rem; margin-top: 0.5rem; }
+    li { margin-bottom: 0.4rem; font-size: 10.5pt; line-height: 1.6; color: #374151; }
+    .entry { margin-bottom: 1.25rem; }
+    .entry-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem; }
+    .entry-title { font-weight: 700; font-size: 11pt; color: #111827; }
+    .entry-meta { font-size: 10pt; color: #6b7280; font-weight: 500; }
+    .entry-subtitle { font-style: italic; color: #4b5563; font-size: 10.5pt; margin-bottom: 0.5rem; }
+    .skills-section { display: flex; flex-wrap: wrap; gap: 0.5rem; line-height: 1.5; }
+    .skill-pill { background: #f3f4f6; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 9.5pt; border: 1px solid #e5e7eb; color: #374151; }
     @page { margin: 0.5in; }
   `;
 

@@ -64,139 +64,128 @@ async function analyze(jd, resume) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",   // best quality
+      model: "llama-3.3-70b-versatile",   // best quality
       // or: llama3-8b-8192 (faster)
       messages: [
-        { role: "system", content: "You are an ATS resume evaluator." },
+        { role: "system", content: "You are an expert ATS evaluator and career domain analyst." },
         {
           role: "user",
-          content: `
-You are a STRICT ATS + Recruiter Intelligence Engine.
+          content: `You are an expert ATS evaluator and career domain analyst. Your task is to objectively compare a candidate's resume against a job description and determine if their PRIMARY DOMAIN aligns with the job's requirements.
 
-CRITICAL RULES FOR DOMAIN EXTRACTION:
+## DOMAIN DEFINITION RULES
 
-1. RESUME DOMAIN:
-   - Analyze the resume and identify the candidate's PRIMARY domain/specialization
-   - Examples: "Frontend Developer", "Backend Engineer", "Full Stack Developer", "DevOps Engineer", "Data Scientist"
+**Resume Domain Detection:**
+- Analyze the candidate's PRIMARY specialization based on:
+  * Current/most recent job title and role
+  * Primary technologies used (the ones they have most experience with)
+  * Years of experience breakdown by technology
+  * Self-identified specialization in summary/objective
+- Return format: "[Role] ([Primary Tech Stack])"
+  Examples: "Backend Engineer (Python/Django/PostgreSQL)", "Frontend Developer (React/TypeScript)", "DevOps Engineer (AWS/Terraform/Docker)"
 
-2. JOB DOMAIN:
-   - Read the ENTIRE job description carefully
-   - Identify what type of role this actually is based on:
-     * Required skills and technologies
-     * Responsibilities mentioned
-     * Experience level expectations
-   - Extract the CORE DOMAIN (e.g., "Software Engineer", "Full Stack Developer", "Backend Developer")
-   
-3. JOB TITLE:
-   - Keep the job title as-is for reference (e.g., "Remote Software Developer (Go)")
+**Job Domain Detection:**
+- Identify the ACTUAL role type needed, not just the title:
+  * Analyze required skills section - what technologies are MANDATORY vs preferred?
+  * Read responsibilities - what will they spend 70%+ of time doing?
+  * Check experience requirements - what background is REQUIRED?
+- Return format: "[Actual Role] ([Required Core Tech])"
+  Examples: "Full Stack Developer (Node.js/React/MongoDB)", "Machine Learning Engineer (Python/TensorFlow/AWS)", "Platform Engineer (Go/Kubernetes/GCP)"
 
-4. DOMAIN ALIGNMENT CALCULATION:
-   - Compare Resume Domain vs Job Domain
-   - Consider:
-     * Is the candidate's specialization (Frontend/Backend/Full Stack/etc.) aligned with job requirements?
-     * Does the candidate have experience in the PRIMARY technologies required?
-     * Does their tech stack overlap with job requirements?
-   
-   ALIGNMENT SCORING GUIDE:
-   - 80-100%: Perfect domain match + has required tech stack
-   - 50-79%: Same general domain but missing some key technologies
-   - 30-49%: Partial overlap (e.g., Frontend dev applying for Full Stack role)
-   - 0-29%: Significant mismatch (e.g., Frontend-only dev for Backend/Go role)
+## STRICT SCORING MATRIX (NO EXCEPTIONS)
 
-EXAMPLES:
+**Domain Match Score (0-100):**
+- 90-100%: IDENTICAL domains. Resume domain matches job domain exactly. Same role type, same core technologies.
+- 70-89%: STRONG alignment. Same role family (e.g., both backend), candidate has 70%+ of required core tech, minor gaps only.
+- 50-69%: MODERATE alignment. Adjacent role type (e.g., Full Stack → Backend), candidate has 50-69% of core tech, significant gaps in mandatory skills.
+- 30-49%: WEAK alignment. Different role family but some overlap (e.g., Frontend → Full Stack), OR same role but missing critical mandatory technologies (>50% gap).
+- 10-29%: POOR alignment. Tangential relation only (e.g., Data Analyst → Software Engineer), major domain mismatch with minimal transferable skills.
+- 0-9%: NO alignment. Completely different fields (e.g., Marketing → Backend Engineering, Graphic Design → DevOps).
 
-Example 1:
-Job Title: "Remote Software Developer (Go)"
-Job Description: Requires Go, Docker, backend systems, full-stack work
-Job Domain: "Full Stack Developer (Go/Backend focused)"
-Resume Domain: "Frontend Developer (React/JavaScript)"
-Alignment: 25% - Wrong specialization, no backend/Go experience
+**CRITICAL CONSTRAINTS:**
+- If resume domain and job domain are different role types (Frontend vs Backend, Data Science vs Web Dev, Mobile vs Cloud), MAXIMUM score is 49%.
+- If mandatory core technologies are missing (listed as "required" or "must-have" in JD), reduce score by 15-25% per missing critical skill.
+- Years of experience in wrong domain does NOT compensate for domain mismatch. A Senior Frontend Dev with 8 years applying to Backend role is still a domain mismatch.
 
-Example 2:
-Job Title: "Senior Backend Engineer"
-Job Description: Requires Python, microservices, AWS, system design
-Job Domain: "Backend Engineer (Python)"
-Resume Domain: "Backend Engineer (Python, AWS)"
-Alignment: 90% - Perfect match
+## OUTPUT FORMAT (STRICT)
 
-Example 3:
-Job Title: "Full Stack Developer"
-Job Description: Requires React, Node.js, MongoDB
-Job Domain: "Full Stack Developer (MERN Stack)"
-Resume Domain: "Full Stack Developer (React, Node.js)"
-Alignment: 85% - Strong match, minor gaps
+Match: [0-100]%
+Decision: [Apply / Weak Match / Poor Match / Invalid Domain]
 
-SCORING RULES:
-- Domain Alignment is calculated FIRST based on role type and tech stack match
-- Overall Match % considers: Domain Alignment + experience level + specific skills + seniority
-- Low Domain Alignment (below 50%) → Overall Match MUST be below 40%
-- High Domain Alignment but missing key skills → Overall Match reduced accordingly
-- Senior role without leadership/system design → penalize overall Match score
+Domain Analysis:
+Resume Domain: [Detected domain with primary tech stack]
+Job Domain: [Detected actual required domain with core tech]
+Domain Match: [Identical / Strong / Moderate / Weak / Poor / None]
+Domain Match Score: [0-100]%
 
-Return output ONLY in the following format:
+Mandatory Skills Check:
+Required: [List mandatory skills from JD]
+Candidate Has: [List matching skills]
+Missing Critical: [List missing mandatory skills]
+Skills Coverage: [X%]
 
-Match: <exact number>%
-Decision: Apply / Improve / Invalid Domain
-
-Domain Identity Score:
-Resume Domain: <candidate's primary specialization with main tech stack>
-Job Domain: <actual role type based on description analysis with key technologies>
-Job Title: <exact title from job posting>
-Alignment: <exact number>%
-Alignment Reason: <1-2 line explanation of why this alignment score>
+Experience Relevance:
+Relevant Years: [X years in matching domain]
+Total Years: [Y total years]
+Relevance Ratio: [Z%]
 
 Recruiter Rejection Simulator:
-- bullets
+- [Specific reason a recruiter would reject based on domain mismatch]
+- [Specific reason based on missing mandatory skills]
 
 Resume Personality Analysis:
-Tone: <Confident / Generic / Technical / Passive / Managerial>
+Tone: [Confident/Technical/Generic/Passive/Managerial]
 Strengths:
-- bullets
+- [Bullet]
 Weaknesses:
-- bullets
+- [Bullet]
 
 ATS Keyword Density Map:
-Skill - Coverage %
+[Skill] - [Coverage %]
 
 Missing Skills:
-- bullets
+- [Specific missing skill with impact]
 
 Resume Improvements:
-- bullets
+- [Specific actionable improvement]
 
 Why Not 100%:
-- exactly 2 bullets
+- [Exactly 2 specific reasons]
 
-What If I Apply? Simulator ⭐:
-Shortlist Probability: <number>%
-Interview Probability: <number>%
-Offer Probability: <number>%
+What If I Apply? Simulator:
+Shortlist Probability: [0-100]%
+Interview Probability: [0-100]%
+Offer Probability: [0-100]%
 Reason:
-- bullets
+- [Specific reason based on domain alignment]
 
 Resume Inflation Detector:
-- bullets
+- [Any detected exaggerations or buzzword stuffing]
 
 Company Fit Analyzer:
-Startup Fit: <Low/Medium/High>
-Product Company Fit: <Low/Medium/High>
-Enterprise MNC Fit: <Low/Medium/High>
-FAANG Fit: <Low/Medium/High>
+Startup Fit: [Low/Medium/High]
+Product Company Fit: [Low/Medium/High]
+Enterprise MNC Fit: [Low/Medium/High]
+FAANG Fit: [Low/Medium/High]
 
+Job Description:
 ${jd}
 
 Resume:
-${resume}
-`
+${resume}`
         }
-
-
       ],
       temperature: 0.2
     })
   });
 
   const data = await response.json();
+
+  // Debug: log the response if there's an issue
+  if (!data.choices || !data.choices[0]) {
+    console.error("API Response Error:", data);
+    return `Match: 0%\nDecision: API Error\n\nAPI Error:\n- ${data.error?.message || JSON.stringify(data)}`;
+  }
+
   return data.choices[0].message.content.trim();
 }
 
