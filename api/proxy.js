@@ -17,10 +17,75 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+    const { model, messages, systemInstruction, contents, response_format, generationConfig } = req.body;
 
+    // Handle Gemini Models
+    if (model && (model.startsWith('gemini') || model.includes('gemini'))) {
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        if (!GEMINI_API_KEY) {
+            return res.status(500).json({ error: 'GEMINI_API_KEY not configured on server' });
+        }
+
+        const geminiModel = model.includes(':') ? model : `models/${model}:generateContent`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/${geminiModel}?key=${GEMINI_API_KEY}`;
+
+        let geminiBody = {};
+
+        // If the request is already in Gemini format
+        if (contents) {
+            geminiBody = { systemInstruction, contents };
+            geminiBody.generationConfig = { ...(generationConfig || {}) };
+            if (response_format?.type === 'json_object') {
+                geminiBody.generationConfig.responseMimeType = 'application/json';
+            }
+        } else if (messages) {
+            // Convert OpenAI/Groq format to Gemini format
+            const systemMessage = messages.find(m => m.role === 'system');
+            const userMessages = messages.filter(m => m.role !== 'system');
+
+            if (systemMessage) {
+                geminiBody.systemInstruction = { parts: [{ text: systemMessage.content }] };
+            }
+
+            geminiBody.contents = userMessages.map(m => ({
+                role: m.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: m.content }]
+            }));
+
+            if (response_format?.type === 'json_object') {
+                geminiBody.generationConfig = { responseMimeType: 'application/json' };
+            }
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(geminiBody),
+            });
+
+            const data = await response.json();
+
+            // Transform Gemini response back to OpenAI-like format for legacy compatibility if needed
+            // But for now, let's just return what Gemini gives if we are using Gemini call.
+            // If we want compatibility with current background.js:
+            if (!contents && messages && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                const text = data.candidates[0].content.parts[0].text;
+                return res.status(200).json({
+                    choices: [{ message: { content: text } }]
+                });
+            }
+
+            return res.status(response.status).json(data);
+        } catch (error) {
+            return res.status(500).json({ error: error.message });
+        }
+    }
+
+    // Default to Groq
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
     if (!GROQ_API_KEY) {
-        return res.status(500).json({ error: 'API key not configured on server' });
+        return res.status(500).json({ error: 'GROQ_API_KEY not configured on server' });
     }
 
     try {
@@ -39,3 +104,4 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: error.message });
     }
 }
+

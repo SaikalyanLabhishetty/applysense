@@ -19,8 +19,8 @@ chrome.runtime.onMessage.addListener(async (msg) => {
       chrome.tabs.sendMessage(tabId, { type: "GET_JD" }, async res => {
         if (chrome.runtime.lastError) {
           // If we are on a valid LinkedIn job view page, don't show the error as requested by the user.
-          if (tab.url.includes("/jobs/view/") || tab.url.includes("job-listings")) {
-            console.log("Suppressed lastError because user is on a valid /jobs/view/ URL");
+          if (tab.url.includes("/jobs/view/") || tab.url.includes("job-listings") || tab.url.includes("currentJobId=")) {
+            console.log("Suppressed lastError because user is on a valid job URL");
             return;
           }
           chrome.runtime.sendMessage({ type: "RESULT", text: "Match: 0%\nDecision: Invalid Page\n\nPlease Refresh:\n- The extension needs to reload on this page\n- Please refresh the page and try again" });
@@ -64,13 +64,13 @@ async function analyze(jd, resume) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",   // best quality
-      // or: llama3-8b-8192 (faster)
-      messages: [
-        { role: "system", content: "You are an expert ATS evaluator and career domain analyst." },
-        {
-          role: "user",
-          content: `You are an expert ATS evaluator and career domain analyst. Your task is to objectively compare a candidate's resume against a job description and determine if their PRIMARY DOMAIN aligns with the job's requirements.
+      model: "gemini-2.0-flash",
+      systemInstruction: {
+        parts: [{ text: "You are an expert ATS evaluator. Be strict about domain matching. Different domains (Frontend vs Backend, Web vs Data Science) = maximum 49% match score." }]
+      },
+      contents: [{
+        parts: [{
+          text: `You are an expert ATS evaluator and career domain analyst. Your task is to objectively compare a candidate's resume against a job description and determine if their PRIMARY DOMAIN aligns with the job's requirements.
 
 ## DOMAIN DEFINITION RULES
 
@@ -172,22 +172,25 @@ ${jd}
 
 Resume:
 ${resume}`
-        }
-      ],
-      temperature: 0.2
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.2
+      }
     })
   });
 
   const data = await response.json();
 
   // Debug: log the response if there's an issue
-  if (!data.choices || !data.choices[0]) {
+  if (!data.candidates || !data.candidates[0]) {
     console.error("API Response Error:", data);
     return `Match: 0%\nDecision: API Error\n\nAPI Error:\n- ${data.error?.message || JSON.stringify(data)}`;
   }
 
-  return data.choices[0].message.content.trim();
+  return data.candidates[0].content.parts[0].text.trim();
 }
+
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "GENERATE_RESUME") {
@@ -234,12 +237,13 @@ async function generateResumeJSON(jd, resume) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
-      messages: [
-        { role: "system", content: "You are an elite career strategist and expert ATS resume optimizer." },
-        {
-          role: "user",
-          content: `
+      model: "gemini-2.0-flash",
+      systemInstruction: {
+        parts: [{ text: "You are an elite career strategist and expert ATS resume optimizer. You rewrite resumes to be 'Job Ready' for specific job descriptions." }]
+      },
+      contents: [{
+        parts: [{
+          text: `
 You are rewriting a user's resume to specifically target a Job Description.
 
 Target: create a "Job Ready" resume that is fully optimized for the proprietary ATS of the target company.
@@ -294,16 +298,20 @@ Return content in this JSON structure:
   ]
 }
 `
-        }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.3
+        }]
+      }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.3
+      }
     })
   });
 
   const data = await response.json();
-  return JSON.parse(data.choices[0].message.content);
+  const text = data.candidates[0].content.parts[0].text;
+  return JSON.parse(text);
 }
+
 
 async function suggestAnswer(question, resume) {
   const response = await fetch(VERCEL_PROXY_URL, {
@@ -312,21 +320,19 @@ async function suggestAnswer(question, resume) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert career assistant. Based on the user's resume, provide a concise and truthful answer to the job application question. If the question is a Yes/No question, answer with 'Yes' or 'No'. If it asks for numerical values (like years of experience), provide the number. Keep answers very short."
-        },
-        {
-          role: "user",
-          content: `Question: ${question}\n\nResume Context:\n${resume}`
-        }
-      ],
-      temperature: 0.1
+      model: "gemini-2.0-flash",
+      systemInstruction: {
+        parts: [{ text: "You are an expert career assistant. Based on the user's resume, provide a concise and truthful answer to the job application question. If the question is a Yes/No question, answer with 'Yes' or 'No'. If it asks for numerical values (like years of experience), provide the number. Keep answers very short." }]
+      },
+      contents: [{
+        parts: [{ text: `Question: ${question}\n\nResume Context:\n${resume}` }]
+      }],
+      generationConfig: {
+        temperature: 0.1
+      }
     })
   });
 
   const data = await response.json();
-  return data.choices[0].message.content.trim();
+  return data.candidates[0].content.parts[0].text.trim();
 }

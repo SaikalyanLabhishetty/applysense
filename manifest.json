@@ -13,6 +13,7 @@
     "https://api.mistral.ai/*",
     "https://api.openai.com/*",
     "https://api.groq.com/*",
+    "https://applysense-six.vercel.app/*",
     "*://*.linkedin.com/*",
     "*://*.naukri.com/*"
   ],
