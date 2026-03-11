@@ -206,7 +206,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         if (!jd || !resume) return sendResponse({ error: "Missing JD or Resume" });
 
-        const generatedData = awaigenerateResumeJSON(jd, resume);
+        const generatedData = await generateResumeJSON(jd, resume);
         sendResponse({ success: true, data: generatedData });
       } catch (error) {
         sendResponse({ error: error.message });
