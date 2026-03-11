@@ -19,11 +19,91 @@ export default async function handler(req, res) {
 
     const { model, messages, systemInstruction, contents, response_format, generationConfig } = req.body;
 
+    const getTextFromParts = (parts = []) => {
+        return parts
+            .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+            .filter(Boolean)
+            .join('\n')
+            .trim();
+    };
+
+    const toOpenAIMessages = () => {
+        if (Array.isArray(messages) && messages.length) {
+            return messages;
+        }
+
+        const mapped = [];
+        const systemText = getTextFromParts(systemInstruction?.parts || []);
+        if (systemText) {
+            mapped.push({ role: 'system', content: systemText });
+        }
+
+        if (Array.isArray(contents)) {
+            for (const content of contents) {
+                const role = content?.role === 'model' ? 'assistant' : 'user';
+                const text = getTextFromParts(content?.parts || []);
+                if (text) {
+                    mapped.push({ role, content: text });
+                }
+            }
+        }
+
+        return mapped;
+    };
+
+    const callMistral = async () => {
+        const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
+        if (!MISTRAL_API_KEY) {
+            return { status: 500, data: { error: 'MISTRAL_API_KEY not configured on server' } };
+        }
+
+        const mistralMessages = toOpenAIMessages();
+        if (!mistralMessages.length) {
+            return { status: 400, data: { error: 'No valid messages to send to Mistral' } };
+        }
+
+        const mistralModel = model && model.includes('mistral') ? model : 'open-mistral-nemo';
+        const mistralBody = {
+            model: mistralModel,
+            messages: mistralMessages,
+            temperature: generationConfig?.temperature,
+        };
+
+        if (response_format?.type === 'json_object') {
+            mistralBody.response_format = { type: 'json_object' };
+        }
+
+        const mistralResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(mistralBody),
+        });
+
+        const mistralData = await mistralResponse.json();
+        return { status: mistralResponse.status, data: mistralData, model: mistralModel };
+    };
+
     // Handle Gemini Models
     if (model && (model.startsWith('gemini') || model.includes('gemini'))) {
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
-            return res.status(500).json({ error: 'GEMINI_API_KEY not configured on server' });
+            const mistralResult = await callMistral();
+            const text = mistralResult.data?.choices?.[0]?.message?.content || '';
+            const mistralSucceeded = mistralResult.status >= 200 && mistralResult.status < 300;
+            if (contents) {
+                if (mistralSucceeded && text) {
+                    return res.status(mistralResult.status).json({
+                        candidates: [{ content: { parts: [{ text }] } }],
+                        fallbackProvider: 'mistral',
+                        fallbackModel: mistralResult.model,
+                    });
+                }
+                return res.status(mistralResult.status).json(mistralResult.data);
+            }
+            return res.status(mistralResult.status).json(mistralResult.data);
         }
 
         const geminiModel = model.includes(':') ? model : `models/${model}:generateContent`;
@@ -66,6 +146,30 @@ export default async function handler(req, res) {
 
             const data = await response.json();
 
+            const quotaExceeded =
+                response.status === 429 ||
+                data?.error?.status === 'RESOURCE_EXHAUSTED' ||
+                /quota|rate\s*limit|resource_exhausted/i.test(data?.error?.message || '');
+
+            if (!response.ok && quotaExceeded) {
+                const mistralResult = await callMistral();
+                const text = mistralResult.data?.choices?.[0]?.message?.content || '';
+                const mistralSucceeded = mistralResult.status >= 200 && mistralResult.status < 300;
+
+                if (contents) {
+                    if (mistralSucceeded && text) {
+                        return res.status(mistralResult.status).json({
+                            candidates: [{ content: { parts: [{ text }] } }],
+                            fallbackProvider: 'mistral',
+                            fallbackModel: mistralResult.model,
+                        });
+                    }
+                    return res.status(mistralResult.status).json(mistralResult.data);
+                }
+
+                return res.status(mistralResult.status).json(mistralResult.data);
+            }
+
             // Transform Gemini response back to OpenAI-like format for legacy compatibility if needed
             // But for now, let's just return what Gemini gives if we are using Gemini call.
             // If we want compatibility with current background.js:
@@ -82,24 +186,9 @@ export default async function handler(req, res) {
         }
     }
 
-    // Default to Groq
-    const GROQ_API_KEY = process.env.GROQ_API_KEY;
-    if (!GROQ_API_KEY) {
-        return res.status(500).json({ error: 'GROQ_API_KEY not configured on server' });
-    }
-
     try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${GROQ_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(req.body),
-        });
-
-        const data = await response.json();
-        return res.status(response.status).json(data);
+        const mistralResult = await callMistral();
+        return res.status(mistralResult.status).json(mistralResult.data);
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
