@@ -200,13 +200,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (!tab) return sendResponse({ error: "No active tab" });
 
         const response = await chrome.tabs.sendMessage(tab.id, { type: "GET_JD" });
-        const jd = (response?.jd || "").slice(0, 6000);
+        const jd = (response?.jd || "").slice(0, 12000);
         const data = await chrome.storage.local.get("resumeText");
-        const resume = (data.resumeText || "").slice(0, 6000);
+        const resume = (data.resumeText || "").slice(0, 15000);
 
         if (!jd || !resume) return sendResponse({ error: "Missing JD or Resume" });
 
-        const generatedData = await generateResumeJSON(jd, resume);
+        const generatedData = awaigenerateResumeJSON(jd, resume);
         sendResponse({ success: true, data: generatedData });
       } catch (error) {
         sendResponse({ error: error.message });
@@ -262,6 +262,18 @@ CRITICAL INSTRUCTIONS:
 3. **ATS Format**: Keep the structure clean. Use standard headings.
 4. **Summary**: Rewrite the summary to be a powerful elevator pitch that hits the top 3 requirements of the JD.
 5. **No Hallucinations**: Do not invent completely false jobs or companies. But DO rephrase, expand, and specificize existing experience to match the JD's language perfectly.
+6. **Experience Completeness**:
+  - Include ALL resume experience entries found in the source resume (do not keep only one).
+  - For each role, provide 4-6 concise impact bullets where evidence exists.
+7. **Projects Completeness**:
+  - Include ALL real projects present in the source resume.
+  - If at least 3 real projects are present in the source resume, return at least 3 projects.
+  - Do not invent fake projects; when fewer than 3 exist in source resume, return only real ones.
+8. **Education Completeness**:
+  - Include ALL education entries present in the source resume (do not keep only one).
+  - Preserve degree, school, and year/date for each entry when available.
+9. **Strict JSON Output**:
+  - Return ONLY valid JSON. No markdown, no commentary, no code fences.
 
 Return content in this JSON structure:
 {
@@ -279,14 +291,14 @@ Return content in this JSON structure:
       "role": "Job Title",
       "company": "Company",
       "date": "Date Range",
-      "points": ["Actionable bullet 1", "Actionable bullet 2"]
+      "points": ["Actionable bullet 1", "Actionable bullet 2", "Actionable bullet 3", "Actionable bullet 4"]
     }
   ],
   "projects": [
     {
       "name": "Project Name",
       "description": "Short desc",
-      "points": ["Bullet 1"]
+      "points": ["Bullet 1", "Bullet 2"]
     }
   ],
   "education": [
@@ -308,8 +320,33 @@ Return content in this JSON structure:
   });
 
   const data = await response.json();
-  const text = data.candidates[0].content.parts[0].text;
-  return JSON.parse(text);
+  if (!response.ok) {
+    throw new Error(data?.error?.message || data?.error || `API request failed (${response.status})`);
+  }
+
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || data?.choices?.[0]?.message?.content || "";
+  if (!text) {
+    throw new Error("Model returned empty response for resume generation");
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    const codeFenceMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
+    const fenced = codeFenceMatch?.[1]?.trim();
+    if (fenced) {
+      return JSON.parse(fenced);
+    }
+
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const sliced = text.slice(firstBrace, lastBrace + 1);
+      return JSON.parse(sliced);
+    }
+
+    throw new Error("Model did not return valid JSON for resume generation");
+  }
 }
 
 

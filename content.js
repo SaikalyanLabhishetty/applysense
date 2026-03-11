@@ -331,6 +331,8 @@ function showResumeModal(data) {
 
   const shadow = root.attachShadow({ mode: "open" });
 
+  let selectedTemplate = "modern";
+
   const resumeStyles = `
     .page { font-family: 'Inter', -apple-system, sans-serif; background: white; margin: 0; padding: 0.5in 0.75in; min-height: 10in; box-sizing: border-box; }
     .header-content { text-align: center; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1.5rem; }
@@ -347,6 +349,25 @@ function showResumeModal(data) {
     .entry-subtitle { font-style: italic; color: #4b5563; font-size: 10.5pt; margin-bottom: 0.5rem; }
     .skills-section { display: flex; flex-wrap: wrap; gap: 0.5rem; line-height: 1.5; }
     .skill-pill { background: #f3f4f6; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 9.5pt; border: 1px solid #e5e7eb; color: #374151; }
+
+    .template-modern h2 { color: #1e40af; border-bottom: 2px solid #e5e7eb; }
+    .template-modern .entry-title { color: #111827; }
+
+    .template-minimal .header-content { text-align: left; border-bottom: 1px solid #d1d5db; padding-bottom: 1rem; margin-bottom: 1rem; }
+    .template-minimal .contact-line { justify-content: flex-start; gap: 0.5rem; }
+    .template-minimal h2 { color: #111827; border-bottom: 1px solid #d1d5db; letter-spacing: 0.02em; }
+    .template-minimal .entry-subtitle { font-style: normal; }
+    .template-minimal .skill-pill { background: #ffffff; border: 1px solid #d1d5db; }
+
+    .template-classic .page, .page.template-classic { font-family: 'Georgia', 'Times New Roman', serif; }
+    .template-classic .header-content { border-bottom: 2px solid #1f2937; }
+    .template-classic .header-content h1 { letter-spacing: 0.04em; text-transform: uppercase; font-size: 22pt; }
+    .template-classic .contact-line { font-size: 9pt; color: #374151; }
+    .template-classic h2 { color: #1f2937; border-bottom: 1px solid #1f2937; }
+    .template-classic .entry-title { font-size: 10.8pt; }
+    .template-classic .entry-subtitle { color: #1f2937; }
+    .template-classic .skill-pill { background: #f9fafb; border: 1px solid #d1d5db; }
+
     @page { margin: 0.5in; }
   `;
 
@@ -394,6 +415,67 @@ function showResumeModal(data) {
       font-size: 1.125rem;
       font-weight: 600;
       color: #111827;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      min-width: 0;
+    }
+    .template-picker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #ffffff;
+      border: 1px solid #dbe1ea;
+      border-radius: 0.625rem;
+      padding: 0.25rem 0.35rem 0.25rem 0.6rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .template-picker:focus-within {
+      border-color: #93c5fd;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+    .template-label {
+      font-size: 0.76rem;
+      color: #64748b;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .template-select {
+      border: none;
+      border-radius: 0.45rem;
+      background-color: #f8fafc;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364758b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.45rem center;
+      background-size: 14px;
+      padding: 0.42rem 1.8rem 0.42rem 0.6rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #0f172a;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      min-width: 138px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .template-select:hover {
+      background-color: #f1f5f9;
+    }
+    @media (max-width: 768px) {
+      .modal-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+      .header-controls {
+        justify-content: space-between;
+      }
     }
     .modal-body {
       flex: 1;
@@ -444,15 +526,25 @@ function showResumeModal(data) {
 
   content.innerHTML = `
     <div class="modal-header">
-      <h3>Job Ready Resume</h3>
+      <div class="header-controls">
+        <h3>Job Ready Resume</h3>
+        <div class="template-picker">
+          <label class="template-label" for="ca-template-select">Template</label>
+          <select class="template-select" id="ca-template-select">
+            <option value="modern" selected>Modern</option>
+            <option value="minimal">Minimal</option>
+            <option value="classic">Classic</option>
+          </select>
+        </div>
+      </div>
       <div style="display: flex; gap: 0.75rem;">
         <button class="btn btn-primary" id="ca-download-btn">Download PDF</button>
         <button class="btn btn-secondary" id="ca-close-btn">Close</button>
       </div>
     </div>
     <div class="modal-body">
-      <div class="page" id="ca-resume-page">
-        ${getResumeHTML(data)}
+      <div class="page template-modern" id="ca-resume-page">
+        ${getResumeHTML(data, selectedTemplate)}
       </div>
     </div>
   `;
@@ -469,6 +561,21 @@ function showResumeModal(data) {
   shadow.getElementById("ca-close-btn").onclick = cleanup;
   overlay.onclick = (e) => { if (e.target === overlay) cleanup(); };
 
+  const templateSelect = shadow.getElementById("ca-template-select");
+  const renderPreview = () => {
+    const page = shadow.getElementById("ca-resume-page");
+    if (!page) return;
+    page.className = `page template-${selectedTemplate}`;
+    page.innerHTML = getResumeHTML(data, selectedTemplate);
+  };
+
+  if (templateSelect) {
+    templateSelect.addEventListener("change", (e) => {
+      selectedTemplate = e.target.value;
+      renderPreview();
+    });
+  }
+
   shadow.getElementById("ca-download-btn").onclick = () => {
     // 1. Create a temporary container in the main document
     // This is needed because html2canvas has trouble rendering content inside Shadow DOM
@@ -480,9 +587,10 @@ function showResumeModal(data) {
     tempContainer.style.background = "white";
     tempContainer.style.zIndex = "-1";
 
+    const templateClass = `template-${selectedTemplate}`;
     tempContainer.innerHTML = `
       <style>${resumeStyles}</style>
-      <div class="page">${getResumeHTML(data)}</div>
+      <div class="page ${templateClass}">${getResumeHTML(data, selectedTemplate)}</div>
     `;
     document.body.appendChild(tempContainer);
 
@@ -491,7 +599,7 @@ function showResumeModal(data) {
 
     const opt = {
       margin: [0, 0, 0, 0],
-      filename: `Resume_${data.header.name.replace(/\s+/g, '_')}.pdf`,
+      filename: `Resume_${(data?.header?.name || "Candidate").replace(/\s+/g, '_')}_${selectedTemplate}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: {
         scale: 2,
@@ -519,39 +627,73 @@ function showResumeModal(data) {
   document.body.style.overflow = "hidden";
 }
 
-function getResumeHTML(data) {
+function getResumeHTML(data, template = "modern") {
   const escape = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  const header = data?.header || {};
+  const experiences = Array.isArray(data?.experience) ? data.experience : [];
+  const projects = Array.isArray(data?.projects) ? data.projects : [];
+  const education = Array.isArray(data?.education) ? data.education : [];
+
+  const sectionTitle = {
+    modern: {
+      summary: "Professional Summary",
+      skills: "Core Competencies",
+      experience: "Professional Experience",
+      projects: "Key Projects",
+      education: "Education"
+    },
+    minimal: {
+      summary: "Summary",
+      skills: "Skills",
+      experience: "Experience",
+      projects: "Projects",
+      education: "Education"
+    },
+    classic: {
+      summary: "Career Profile",
+      skills: "Technical Skills",
+      experience: "Employment History",
+      projects: "Projects",
+      education: "Academic Background"
+    }
+  }[template] || {
+    summary: "Professional Summary",
+    skills: "Core Competencies",
+    experience: "Professional Experience",
+    projects: "Key Projects",
+    education: "Education"
+  };
 
   return `
     <header class="header-content">
-      <h1>${escape(data.header.name)}</h1>
+      <h1>${escape(header.name)}</h1>
       <div class="contact-line">
-        ${data.header.email ? `<span class="contact-item">${escape(data.header.email)}</span>` : ''}
-        ${data.header.phone ? `<span>|</span><span class="contact-item">${escape(data.header.phone)}</span>` : ''}
-        ${data.header.location ? `<span>|</span><span class="contact-item">${escape(data.header.location)}</span>` : ''}
+        ${header.email ? `<span class="contact-item">${escape(header.email)}</span>` : ''}
+        ${header.phone ? `<span>|</span><span class="contact-item">${escape(header.phone)}</span>` : ''}
+        ${header.location ? `<span>|</span><span class="contact-item">${escape(header.location)}</span>` : ''}
       </div>
     </header>
     
     ${data.summary ? `
     <section>
-      <h2>Professional Summary</h2>
+      <h2>${sectionTitle.summary}</h2>
       <p>${escape(data.summary)}</p>
     </section>
     ` : ''}
 
     ${data.skills && data.skills.length ? `
     <section>
-      <h2>Core Competencies</h2>
+      <h2>${sectionTitle.skills}</h2>
       <div class="skills-section">
         ${data.skills.map(skill => `<span class="skill-pill">${escape(skill)}</span>`).join('')}
       </div>
     </section>
     ` : ''}
 
-    ${data.experience && data.experience.length ? `
+    ${experiences.length ? `
     <section>
-      <h2>Professional Experience</h2>
-      ${data.experience.map(exp => `
+      <h2>${sectionTitle.experience}</h2>
+      ${experiences.map(exp => `
         <div class="entry">
           <div class="entry-header">
             <div class="entry-title">${escape(exp.role)}</div>
@@ -559,34 +701,34 @@ function getResumeHTML(data) {
           </div>
           <div class="entry-subtitle">${escape(exp.company)}</div>
           <ul>
-            ${exp.points.map(point => `<li>${escape(point)}</li>`).join('')}
+            ${(Array.isArray(exp.points) ? exp.points : []).map(point => `<li>${escape(point)}</li>`).join('')}
           </ul>
         </div>
       `).join('')}
     </section>
     ` : ''}
 
-    ${data.projects && data.projects.length ? `
+    ${projects.length ? `
     <section>
-      <h2>Key Projects</h2>
-      ${data.projects.map(proj => `
+      <h2>${sectionTitle.projects}</h2>
+      ${projects.map(proj => `
         <div class="entry">
           <div class="entry-header">
             <div class="entry-title">${escape(proj.name)}</div>
           </div>
           <p style="margin-bottom: 0.5rem; font-style: italic;">${escape(proj.description)}</p>
           <ul>
-            ${proj.points.map(point => `<li>${escape(point)}</li>`).join('')}
+            ${(Array.isArray(proj.points) ? proj.points : []).map(point => `<li>${escape(point)}</li>`).join('')}
           </ul>
         </div>
       `).join('')}
     </section>
     ` : ''}
     
-    ${data.education && data.education.length ? `
+    ${education.length ? `
     <section>
-      <h2>Education</h2>
-      ${data.education.map(edu => `
+      <h2>${sectionTitle.education}</h2>
+      ${education.map(edu => `
         <div class="entry">
           <div class="entry-header">
             <div class="entry-title">${escape(edu.school)}</div>

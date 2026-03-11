@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     }
 
     const { model, messages, systemInstruction, contents, response_format, generationConfig } = req.body;
+    const jsonRequested = response_format?.type === 'json_object' || generationConfig?.responseMimeType === 'application/json';
 
     const getTextFromParts = (parts = []) => {
         return parts
@@ -69,7 +70,7 @@ export default async function handler(req, res) {
             temperature: generationConfig?.temperature,
         };
 
-        if (response_format?.type === 'json_object') {
+        if (jsonRequested) {
             mistralBody.response_format = { type: 'json_object' };
         }
 
@@ -115,7 +116,7 @@ export default async function handler(req, res) {
         if (contents) {
             geminiBody = { systemInstruction, contents };
             geminiBody.generationConfig = { ...(generationConfig || {}) };
-            if (response_format?.type === 'json_object') {
+            if (jsonRequested) {
                 geminiBody.generationConfig.responseMimeType = 'application/json';
             }
         } else if (messages) {
@@ -132,7 +133,7 @@ export default async function handler(req, res) {
                 parts: [{ text: m.content }]
             }));
 
-            if (response_format?.type === 'json_object') {
+            if (jsonRequested) {
                 geminiBody.generationConfig = { responseMimeType: 'application/json' };
             }
         }
