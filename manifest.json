@@ -2,12 +2,12 @@
   "manifest_version": 3,
   "name": "ApplySure",
   "version": "2.0",
-  "description": "Job match analyzer in sidebar",
+  "description": "Instantly analyze how well your resume matches any LinkedIn or Naukri job — get ATS score, skill gaps, and a tailored job-ready resume in one click.",
   "icons": {
-    "16": "assets/image.png",
-    "32": "assets/image.png",
-    "48": "assets/image.png",
-    "128": "assets/image.png"
+    "16": "assets/image-16x16.png",
+    "32": "assets/image-32x32.png",
+    "48": "assets/image-48x48.png",
+    "128": "assets/image-128x128.png"
   },
   "permissions": [
     "storage",
@@ -29,10 +29,10 @@
   "action": {
     "default_title": "ApplySure",
     "default_icon": {
-      "16": "assets/image.png",
-      "32": "assets/image.png",
-      "48": "assets/image.png",
-      "128": "assets/image.png"
+      "16": "assets/image-16x16.png",
+      "32": "assets/image-32x32.png",
+      "48": "assets/image-48x48.png",
+      "128": "assets/image-128x128.png"
     }
   },
   "side_panel": {
@@ -41,7 +41,8 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*/*"
+        "*://*.linkedin.com/*",
+        "*://*.naukri.com/*"
       ],
       "js": [
         "html2pdf.bundle.min.js",
