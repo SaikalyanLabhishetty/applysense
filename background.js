@@ -68,7 +68,7 @@ async function analyze(jd, resume) {
     body: JSON.stringify({
       model: "gemini-2.0-flash",
       systemInstruction: {
-        parts: [{ text: "You are an expert ATS evaluator. Be strict about domain matching. Different domains (Frontend vs Backend, Web vs Data Science) = maximum 49% match score." }]
+        parts: [{ text: "You are an expert ATS evaluator. Be strict about domain matching. Different domains (Frontend vs Backend, Web vs Data Science) = maximum 49% match score. NEVER award a 100% Match score under any circumstances — there is always at least one gap, missing experience, or improvement area." }]
       },
       contents: [{
         parts: [{
@@ -104,6 +104,7 @@ async function analyze(jd, resume) {
 - 0-9%: NO alignment. Completely different fields (e.g., Marketing → Backend Engineering, Graphic Design → DevOps).
 
 **CRITICAL CONSTRAINTS:**
+- NEVER give a Match score of 100%. The maximum possible Match score is 97%. There is always at least one gap, missing keyword, or experience depth issue. Be honest.
 - If resume domain and job domain are different role types (Frontend vs Backend, Data Science vs Web Dev, Mobile vs Cloud), MAXIMUM score is 49%.
 - If mandatory core technologies are missing (listed as "required" or "must-have" in JD), reduce score by 15-25% per missing critical skill.
 - Years of experience in wrong domain does NOT compensate for domain mismatch. A Senior Frontend Dev with 8 years applying to Backend role is still a domain mismatch.
@@ -120,10 +121,14 @@ Domain Match: [Identical / Strong / Moderate / Weak / Poor / None]
 Domain Match Score: [0-100]%
 
 Mandatory Skills Check:
-Required: [List mandatory skills from JD]
-Candidate Has: [List matching skills]
-Missing Critical: [List missing mandatory skills]
+Required: [List every mandatory skill/technology from JD]
+Candidate Has: [List which of those the resume explicitly mentions]
+Missing Critical: [List mandatory JD skills absent from resume]
 Skills Coverage: [X%]
+
+Resume Skills vs JD Cross-check:
+[For EVERY skill/technology listed in the resume, one line each]
+[Skill from Resume] - [Present in JD: Yes / Partially / No] - [Relevance: High / Medium / Low / Not required]
 
 Experience Relevance:
 Relevant Years: [X years in matching domain]

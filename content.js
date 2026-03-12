@@ -420,44 +420,6 @@ function showResumeModal(data) {
 
     @page { margin: 0.5in; }
 
-    /* ── Page rulers (visual page-boundary lines in preview) ── */
-    .page { position: relative; }
-    .page-ruler {
-      position: absolute;
-      left: 0; right: 0;
-      border-top: 3px dashed #ef4444;
-      z-index: 6;
-      pointer-events: none;
-    }
-    .page-ruler::before {
-      content: attr(data-label);
-      position: absolute;
-      top: -11px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #ef4444;
-      color: white;
-      font-size: 7.5pt;
-      font-family: 'Inter', -apple-system, sans-serif;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      padding: 1px 10px;
-      border-radius: 9999px;
-      white-space: nowrap;
-    }
-    .page-ruler::after {
-      content: attr(data-next);
-      position: absolute;
-      top: 6px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #9ca3af;
-      font-size: 7pt;
-      font-family: 'Inter', -apple-system, sans-serif;
-      letter-spacing: 0.03em;
-      white-space: nowrap;
-    }
-
     /* ── Edit mode ── */
     .edit-mode {
       outline: 2.5px dashed #d97706 !important;
@@ -491,30 +453,6 @@ function showResumeModal(data) {
       white-space: nowrap;
     }
   `;
-
-  // ── Page rulers: show exact page boundaries in the live preview ────────
-  // 1 CSS inch = 96px. Letter page = 11in = 1056px.
-  // We measure the .page element's rendered scrollHeight and draw a
-  // dashed red line at every 1056px boundary so the user can see
-  // exactly where content will be cut before downloading.
-  function renderPageRulers() {
-    const pageEl = shadow.getElementById('ca-resume-page');
-    if (!pageEl) return;
-    // Remove stale rulers
-    pageEl.querySelectorAll('.page-ruler').forEach(r => r.remove());
-    // Printable height = Letter(11in) − top @page margin(0.5in) − bottom @page margin(0.5in) = 10in = 960px at 96dpi
-    const PAGE_PX = 10 * 96; // 960px
-    const totalH  = pageEl.scrollHeight;
-    const numPages = Math.ceil(totalH / PAGE_PX);
-    if (numPages <= 1) return;
-    for (let i = 1; i < numPages; i++) {
-      const ruler = document.createElement('div');
-      ruler.className = 'page-ruler';
-      ruler.style.top = (i * PAGE_PX) + 'px';
-      ruler.setAttribute('data-label', `\u2500\u2500 Page ${i} ends \u00b7 Page ${i + 1} starts \u2500\u2500`);
-      pageEl.appendChild(ruler);
-    }
-  }
 
   const style = document.createElement("style");
   style.textContent = `
@@ -656,9 +594,6 @@ function showResumeModal(data) {
     .btn-secondary:hover {
       background: var(--gray-50);
     }
-    @media print {
-      .page-ruler { display: none !important; }
-    }
     .page {
       /*
        * Width must equal the PRINTABLE area, not the full paper width.
@@ -733,14 +668,10 @@ function showResumeModal(data) {
     page.innerHTML = getResumeHTML(data, selectedTemplate);
   };
 
-  // Initial rulers after first paint
-  requestAnimationFrame(() => requestAnimationFrame(renderPageRulers));
-
   if (templateSelect) {
     templateSelect.addEventListener("change", (e) => {
       selectedTemplate = e.target.value;
       renderPreview();
-      requestAnimationFrame(() => requestAnimationFrame(renderPageRulers));
     });
   }
 
@@ -770,8 +701,6 @@ function showResumeModal(data) {
     resumePageEl.classList.remove("edit-mode");
     editToolbarEl.style.display = "none";
     editBtn.style.display = "";
-    // Re-measure rulers after content edits may have changed height
-    requestAnimationFrame(() => requestAnimationFrame(renderPageRulers));
   };
 
   editBtn.onclick = () => { if (editModeActive) exitEditMode(); else enterEditMode(); };
