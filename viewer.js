@@ -1,3 +1,67 @@
+// ── Edit mode ────────────────────────────────────────────────────────────────
+let editModeActive = false;
+let resumeHasEdits = false;
+
+const resumePage   = document.getElementById('resume-page');
+const editToolbar  = document.getElementById('edit-toolbar');
+const btnEdit      = document.getElementById('btn-edit');
+const btnEditDone  = document.getElementById('btn-edit-done');
+const btnPageBreak = document.getElementById('btn-page-break');
+
+function enterEditMode() {
+    editModeActive = true;
+    resumePage.contentEditable = 'true';
+    resumePage.classList.add('edit-mode');
+    editToolbar.style.display  = 'flex';
+    btnEdit.style.display      = 'none';
+    resumePage.focus();
+}
+
+function exitEditMode() {
+    editModeActive = false;
+    resumeHasEdits = true;          // treat any exit as "edits may exist"
+    resumePage.contentEditable = 'false';
+    resumePage.classList.remove('edit-mode');
+    editToolbar.style.display  = 'none';
+    btnEdit.style.display      = 'flex';
+    // Update button label to reflect edits
+    btnEdit.innerHTML = `
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Edit`;
+}
+
+btnEdit.addEventListener('click', () => {
+    if (editModeActive) exitEditMode(); else enterEditMode();
+});
+
+btnEditDone.addEventListener('click', exitEditMode);
+
+// Insert page break at the current cursor position inside the resume
+btnPageBreak.addEventListener('click', () => {
+    resumePage.focus();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+
+    // Find the block-level element the cursor is in (direct child of resumePage)
+    let node = sel.getRangeAt(0).startContainer;
+    while (node && node.parentNode !== resumePage) node = node.parentNode;
+
+    const marker = document.createElement('div');
+    marker.className = 'page-break-marker';
+    marker.contentEditable = 'false';       // not editable itself
+    marker.setAttribute('data-label', '── Page Break ──');
+
+    if (node) {
+        // Insert the break BEFORE the current block so that block starts on the new page
+        resumePage.insertBefore(marker, node);
+    } else {
+        resumePage.appendChild(marker);
+    }
+});
+
 // Print button
 document.getElementById('btn-print').addEventListener('click', () => {
     window.print();
@@ -5,7 +69,18 @@ document.getElementById('btn-print').addEventListener('click', () => {
 
 // Download PDF button — generates a real text-based PDF via jsPDF
 // so any ATS or PDF parser can extract text from it.
+// If the user has made manual edits (or added page breaks), fall back to
+// Print → Save as PDF which fully honours the live HTML & CSS.
 document.getElementById('btn-download').addEventListener('click', () => {
+    if (resumeHasEdits || document.querySelector('.page-break-marker')) {
+        // Notify the user and trigger the browser print dialog
+        const banner = document.createElement('div');
+        banner.id = 'edit-save-banner';
+        banner.textContent = 'Your resume has been edited. The print dialog is opening — choose "Save as PDF" to download.';
+        document.body.appendChild(banner);
+        setTimeout(() => { banner.remove(); window.print(); }, 1800);
+        return;
+    }
     chrome.storage.local.get('generatedResumeData', result => {
         const data = result.generatedResumeData;
         if (!data) { alert('No resume data found.'); return; }

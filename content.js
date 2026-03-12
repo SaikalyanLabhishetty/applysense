@@ -419,7 +419,102 @@ function showResumeModal(data) {
     .template-classic .skill-pill { background: #f9fafb; border: 1px solid #d1d5db; }
 
     @page { margin: 0.5in; }
+
+    /* ── Page rulers (visual page-boundary lines in preview) ── */
+    .page { position: relative; }
+    .page-ruler {
+      position: absolute;
+      left: 0; right: 0;
+      border-top: 3px dashed #ef4444;
+      z-index: 6;
+      pointer-events: none;
+    }
+    .page-ruler::before {
+      content: attr(data-label);
+      position: absolute;
+      top: -11px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ef4444;
+      color: white;
+      font-size: 7.5pt;
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 1px 10px;
+      border-radius: 9999px;
+      white-space: nowrap;
+    }
+    .page-ruler::after {
+      content: attr(data-next);
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #9ca3af;
+      font-size: 7pt;
+      font-family: 'Inter', -apple-system, sans-serif;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    /* ── Edit mode ── */
+    .edit-mode {
+      outline: 2.5px dashed #d97706 !important;
+      outline-offset: 6px;
+      cursor: text;
+    }
+    .edit-mode * { cursor: text; }
+    .page-break-marker {
+      width: 100%;
+      height: 0;
+      border: none;
+      border-top: 2px dashed #7c3aed;
+      page-break-before: always;
+      break-before: page;
+      position: relative;
+      margin: 0.75rem 0;
+      pointer-events: none;
+    }
+    .page-break-marker::before {
+      content: attr(data-label);
+      position: absolute;
+      top: -0.65rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      color: #7c3aed;
+      font-size: 8pt;
+      letter-spacing: 0.05em;
+      padding: 0 0.5rem;
+      pointer-events: auto;
+      white-space: nowrap;
+    }
   `;
+
+  // ── Page rulers: show exact page boundaries in the live preview ────────
+  // 1 CSS inch = 96px. Letter page = 11in = 1056px.
+  // We measure the .page element's rendered scrollHeight and draw a
+  // dashed red line at every 1056px boundary so the user can see
+  // exactly where content will be cut before downloading.
+  function renderPageRulers() {
+    const pageEl = shadow.getElementById('ca-resume-page');
+    if (!pageEl) return;
+    // Remove stale rulers
+    pageEl.querySelectorAll('.page-ruler').forEach(r => r.remove());
+    // Printable height = Letter(11in) − top @page margin(0.5in) − bottom @page margin(0.5in) = 10in = 960px at 96dpi
+    const PAGE_PX = 10 * 96; // 960px
+    const totalH  = pageEl.scrollHeight;
+    const numPages = Math.ceil(totalH / PAGE_PX);
+    if (numPages <= 1) return;
+    for (let i = 1; i < numPages; i++) {
+      const ruler = document.createElement('div');
+      ruler.className = 'page-ruler';
+      ruler.style.top = (i * PAGE_PX) + 'px';
+      ruler.setAttribute('data-label', `\u2500\u2500 Page ${i} ends \u00b7 Page ${i + 1} starts \u2500\u2500`);
+      pageEl.appendChild(ruler);
+    }
+  }
 
   const style = document.createElement("style");
   style.textContent = `
@@ -530,8 +625,12 @@ function showResumeModal(data) {
     .modal-body {
       flex: 1;
       overflow-y: auto;
-      padding: 2rem;
+      overflow-x: auto;
+      padding: 2rem 1rem;
       background: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
     .btn {
       padding: 0.625rem 1.25rem;
@@ -557,13 +656,22 @@ function showResumeModal(data) {
     .btn-secondary:hover {
       background: var(--gray-50);
     }
+    @media print {
+      .page-ruler { display: none !important; }
+    }
     .page {
+      /*
+       * Width must equal the PRINTABLE area, not the full paper width.
+       * @page { margin: 0.5in } → printable width = 8.5in − 1in = 7.5in = 720px @ 96dpi.
+       * This makes every line wrap at the same point on-screen as in the PDF,
+       * so the page-boundary rulers land exactly where the printer cuts pages.
+       */
       background: white;
-      width: 100%;
-      min-height: 10in;
-      padding: 0.5in 0.75in;
+      width: 720px !important;
+      padding: 0.5in 0.75in !important;
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-      margin: 0 auto;
+      flex-shrink: 0;
+      position: relative;
     }
     ${resumeStyles}
   `;
@@ -587,7 +695,13 @@ function showResumeModal(data) {
           </select>
         </div>
       </div>
-      <div style="display: flex; gap: 0.75rem;">
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <!-- Edit toolbar: shown only in edit mode -->
+        <div id="ca-edit-toolbar" style="display:none; align-items:center; gap:0.5rem;">
+          <button class="btn" id="ca-page-break-btn" style="background:#7c3aed;color:white;font-size:0.8rem;padding:0.5rem 0.9rem;">+ Page Break</button>
+          <button class="btn" id="ca-edit-done-btn" style="background:#059669;color:white;font-size:0.8rem;padding:0.5rem 0.9rem;">✓ Done</button>
+        </div>
+        <button class="btn" id="ca-edit-btn" style="background:#d97706;color:white;">✏ Edit</button>
         <button class="btn btn-primary" id="ca-download-btn">Download PDF</button>
         <button class="btn btn-secondary" id="ca-close-btn">Close</button>
       </div>
@@ -619,15 +733,99 @@ function showResumeModal(data) {
     page.innerHTML = getResumeHTML(data, selectedTemplate);
   };
 
+  // Initial rulers after first paint
+  requestAnimationFrame(() => requestAnimationFrame(renderPageRulers));
+
   if (templateSelect) {
     templateSelect.addEventListener("change", (e) => {
       selectedTemplate = e.target.value;
       renderPreview();
+      requestAnimationFrame(() => requestAnimationFrame(renderPageRulers));
     });
   }
 
+  // ── Edit mode logic ──────────────────────────────────────────────────────
+  let editModeActive = false;
+  let resumeHasEdits = false;
+
+  const resumePageEl  = shadow.getElementById("ca-resume-page");
+  const editToolbarEl = shadow.getElementById("ca-edit-toolbar");
+  const editBtn       = shadow.getElementById("ca-edit-btn");
+  const editDoneBtn   = shadow.getElementById("ca-edit-done-btn");
+  const pageBreakBtn  = shadow.getElementById("ca-page-break-btn");
+
+  const enterEditMode = () => {
+    editModeActive = true;
+    resumePageEl.contentEditable = "true";
+    resumePageEl.classList.add("edit-mode");
+    editToolbarEl.style.display = "flex";
+    editBtn.style.display = "none";
+    resumePageEl.focus();
+  };
+
+  const exitEditMode = () => {
+    editModeActive = false;
+    resumeHasEdits = true;
+    resumePageEl.contentEditable = "false";
+    resumePageEl.classList.remove("edit-mode");
+    editToolbarEl.style.display = "none";
+    editBtn.style.display = "";
+    // Re-measure rulers after content edits may have changed height
+    requestAnimationFrame(() => requestAnimationFrame(renderPageRulers));
+  };
+
+  editBtn.onclick = () => { if (editModeActive) exitEditMode(); else enterEditMode(); };
+  editDoneBtn.onclick = exitEditMode;
+
+  pageBreakBtn.onclick = () => {
+    resumePageEl.focus();
+    const sel = resumePageEl.getRootNode().getSelection
+      ? resumePageEl.getRootNode().getSelection()
+      : shadow.getSelection ? shadow.getSelection() : null;
+    // Fallback: use window selection (works in most shadow DOM contexts)
+    const winSel = window.getSelection();
+
+    const marker = document.createElement("div");
+    marker.className = "page-break-marker";
+    marker.contentEditable = "false";
+    marker.setAttribute("data-label", "── Page Break ──");
+
+    // Find the direct child of resumePageEl that contains the selection
+    let anchor = winSel && winSel.rangeCount > 0 ? winSel.getRangeAt(0).startContainer : null;
+    while (anchor && anchor.parentNode !== resumePageEl) anchor = anchor.parentNode;
+
+    if (anchor) {
+      resumePageEl.insertBefore(marker, anchor);
+    } else {
+      resumePageEl.appendChild(marker);
+    }
+  };
+
+  // ── Download: if edited, open print window; otherwise fast text PDF ───────
   shadow.getElementById("ca-download-btn").onclick = () => {
-    generateTextPDF(data);
+    if (resumeHasEdits || shadow.querySelector(".page-break-marker")) {
+      // Build a standalone HTML page from the live edited content and print it
+      const editedHTML = resumePageEl.innerHTML;
+      const printWin = window.open("", "_blank", "width=900,height=700");
+      printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+        <title>Resume</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { background: white; font-family: 'Inter', sans-serif; }
+          .page-break-marker { page-break-before: always; break-before: page; border: none; }
+          .page-break-marker::before { display: none; }
+          @page { margin: 0.5in; size: letter; }
+        </style>
+        <style>${resumeStyles.replace(/@page[^}]*}/, '')}</style>
+        </head><body>
+        <div class="page template-${selectedTemplate}">${editedHTML}</div>
+        <script>window.onload=function(){window.print();}<\/script>
+        </body></html>`);
+      printWin.document.close();
+    } else {
+      generateTextPDF(data);
+    }
   };
 
   // Prevent background scroll

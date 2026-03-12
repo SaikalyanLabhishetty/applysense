@@ -205,62 +205,115 @@ li::before {
   border: 1px solid #e5e7eb;
 }
 
+/* ── Edit mode ─────────────────────────────────────────────────────────── */
+.edit-mode {
+  outline: 2px dashed #d97706 !important;
+  outline-offset: 6px;
+  cursor: text;
+}
+
+.edit-mode * {
+  cursor: text;
+}
+
+/* Page-break marker — visible on screen, triggers a CSS page break when printing */
+.page-break-marker {
+  width: 100%;
+  height: 0;
+  border-top: 2px dashed #7c3aed;
+  page-break-before: always;
+  break-before: page;
+  position: relative;
+  margin: 0.75rem 0;
+  pointer-events: none;       /* don't interfere with text cursor */
+}
+
+.page-break-marker::before {
+  content: attr(data-label);
+  position: absolute;
+  top: -0.65rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  color: #7c3aed;
+  font-size: 8pt;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.05em;
+  padding: 0 0.5rem;
+  pointer-events: auto;
+}
+
+/* Notification banner shown before print-to-PDF is triggered */
+#edit-save-banner {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e40af;
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-size: 10pt;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  z-index: 9999;
+  text-align: center;
+  max-width: 90vw;
+}
+
 @media print {
 
-  /* Hide everything by default */
-  body * {
-    visibility: hidden;
+  /* Hide the action header */
+  .action-header {
+    display: none !important;
   }
 
-  /* Show only the modal body content */
-  #resumeModal,
-  #resumeModal * {
-    visibility: visible;
-  }
-
-  /* Position the modal body at top left for printing */
-  #resumeModal {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  body {
+    background: white;
+    padding: 0;
     margin: 0;
+  }
+
+  .page-container {
     padding: 0;
-    background: white;
-    display: block !important;
-    /* Force visible */
-  }
-
-  /* Reset modal styling for print */
-  .modal-content {
-    box-shadow: none;
-    border: none;
-    width: 100%;
-    height: auto;
-    overflow: visible;
-  }
-
-  .modal-header {
-    display: none;
-    /* Hide buttons */
-  }
-
-  .modal-body {
-    background: white;
-    padding: 0;
-    overflow: visible;
+    display: block;
   }
 
   .page {
     box-shadow: none;
-    padding: 0;
-    margin: 0;
     width: 100%;
-    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide the dashed outline in edit mode when printing */
+  .edit-mode {
+    outline: none !important;
+  }
+
+  /* Hide the page-break marker line itself but keep the break */
+  .page-break-marker {
+    border-top: none;
+    margin: 0;
+  }
+
+  .page-break-marker::before {
+    display: none;
+  }
+
+  /* Avoid breaking entries across pages */
+  .entry {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  section {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   @page {
     margin: 0.5in;
-    size: auto;
+    size: letter;
   }
 }
