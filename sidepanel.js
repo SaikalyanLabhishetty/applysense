@@ -19,6 +19,8 @@ function showPreviewSection() {
 
 let lastAnalyzedResume = "";
 let isAnalyzing = false;
+let analyzeProgressInterval = null;
+let analyzeTimeoutTimer = null;
 
 // Restore previously saved resume and last analyzed snapshot
 chrome.storage.local.get(["resumeText", "lastAnalyzedResume"], d => {
@@ -32,8 +34,26 @@ chrome.storage.local.get(["resumeText", "lastAnalyzedResume"], d => {
   }
 });
 
+// Live-sync resumeBox when content.js updates resumeText (e.g. after generating a Job Ready Resume)
+// Only update the textarea silently — do NOT wipe analysis results.
+// Results are only cleared when the user explicitly clicks "Clear Results" or "Replace Resume".
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.resumeText) {
+    const newText = changes.resumeText.newValue;
+    if (newText && newText.trim()) {
+      resumeBox.value = newText;
+      analyzeBtn.disabled = false;
+      showPreviewSection();
+    }
+  }
+});
+
 // Initialize permanent refresh button
 document.getElementById("btn-refresh-permanent").onclick = () => {
+  if (analyzeProgressInterval) { clearInterval(analyzeProgressInterval); analyzeProgressInterval = null; }
+  if (analyzeTimeoutTimer) { clearTimeout(analyzeTimeoutTimer); analyzeTimeoutTimer = null; }
+  isAnalyzing = false;
+  analyzeBtn.disabled = false;
   resetResultUI();
   lastAnalyzedResume = "";
   chrome.storage.local.set({ lastAnalyzedResume: "" });
@@ -44,6 +64,9 @@ document.getElementById("fileInput").addEventListener("change", async e => {
   const file = e.target.files[0];
   if (!file) return;
 
+  // Reset the input so the same file can be re-selected later
+  e.target.value = "";
+
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
 
@@ -51,10 +74,49 @@ document.getElementById("fileInput").addEventListener("change", async e => {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    content.items.forEach(i => text += i.str + " ");
+    content.items.forEach(item => text += item.str + " ");
   }
 
-  resumeBox.value = text.trim();
+  const trimmed = text.trim();
+
+  // If no text was extracted the PDF is image-based (e.g. a PDF downloaded
+  // from the viewer via window.print()). Fall back to the resume text that
+  // viewer.js saves whenever a resume is generated — this is always in sync
+  // with the latest downloaded resume.
+  if (!trimmed) {
+    chrome.storage.local.get("resumeText", d => {
+      if (d.resumeText && d.resumeText.trim()) {
+        resumeBox.value = d.resumeText;
+        resetResultUI();
+        analyzeBtn.disabled = false;
+        isAnalyzing = false;
+        showPreviewSection();
+        // Show a subtle inline notice instead of a blocking alert
+        const notice = document.createElement('div');
+        notice.style.cssText = 'background:#fffbeb;border:1px solid #fbbf24;color:#92400e;font-size:0.78rem;padding:0.5rem 0.75rem;border-radius:0.5rem;margin-top:0.5rem;line-height:1.4;';
+        notice.textContent = '\u26a0\ufe0f This PDF is image-based. Your saved resume text has been loaded automatically — you can analyze as usual.';
+        const wrapper = document.querySelector('.textarea-wrapper');
+        if (wrapper && !wrapper.querySelector('.img-pdf-notice')) {
+          notice.classList.add('img-pdf-notice');
+          wrapper.insertAdjacentElement('afterend', notice);
+          setTimeout(() => notice.remove(), 6000);
+        }
+      } else {
+        const notice = document.createElement('div');
+        notice.style.cssText = 'background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;font-size:0.78rem;padding:0.5rem 0.75rem;border-radius:0.5rem;margin-top:0.5rem;line-height:1.4;';
+        notice.textContent = '\u274c This PDF is image-based and has no selectable text — ATS systems cannot parse it either. Please upload the original PDF (not the downloaded copy).';
+        const wrapper = document.querySelector('.upload-area');
+        if (wrapper && !wrapper.querySelector('.img-pdf-notice')) {
+          notice.classList.add('img-pdf-notice');
+          wrapper.insertAdjacentElement('afterend', notice);
+          setTimeout(() => notice.remove(), 8000);
+        }
+      }
+    });
+    return;
+  }
+
+  resumeBox.value = trimmed;
   lastAnalyzedResume = "";
   chrome.storage.local.set({
     resumeText: resumeBox.value,
@@ -69,6 +131,8 @@ document.getElementById("fileInput").addEventListener("change", async e => {
 
 // Reset button handler
 document.getElementById("reset").onclick = () => {
+  if (analyzeProgressInterval) { clearInterval(analyzeProgressInterval); analyzeProgressInterval = null; }
+  if (analyzeTimeoutTimer) { clearTimeout(analyzeTimeoutTimer); analyzeTimeoutTimer = null; }
   resumeBox.value = "";
   resetResultUI();
   analyzeBtn.disabled = false;
@@ -107,18 +171,52 @@ analyzeBtn.onclick = () => {
   isAnalyzing = true;
   analyzeBtn.disabled = true;
 
-  // Modern Loading State
+  // Animated Progress Bar (0 → 100)
+  let progress = 0;
   resultDiv.innerHTML = `
-    <div style="text-align: center; padding: 40px 20px;">
-      <div style="width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite;"></div>
-      <p style="color: #6b7280; font-size: 0.875rem; font-weight: 500;">Analyzing resume against job description...</p>
+    <div style="padding: 2rem 1rem; text-align: center;">
+      <p style="color: #374151; font-size: 0.875rem; font-weight: 600; margin-bottom: 1.25rem;">
+        Analyzing resume against job description…
+      </p>
+      <div style="background:#e5e7eb; border-radius:9999px; height:8px; overflow:hidden; margin-bottom:0.5rem;">
+        <div id="analyze-progress-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#3b82f6,#1d4ed8); border-radius:9999px; transition:width 0.5s ease;"></div>
+      </div>
+      <p id="analyze-progress-text" style="color:#6b7280; font-size:0.75rem; margin-top:0.4rem;">0%</p>
     </div>
-    <style>
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-    </style>
   `;
+
+  analyzeProgressInterval = setInterval(() => {
+    const bar = document.getElementById("analyze-progress-bar");
+    const txt = document.getElementById("analyze-progress-text");
+    if (!bar || !txt) { clearInterval(analyzeProgressInterval); return; }
+    if (progress < 85) {
+      progress += Math.random() * 6 + 1;
+      if (progress > 85) progress = 85;
+      bar.style.width = progress.toFixed(0) + "%";
+      txt.textContent = Math.round(progress) + "%";
+    }
+  }, 600);
+
+  // 45-second hard timeout so the loader never spins forever
+  analyzeTimeoutTimer = setTimeout(() => {
+    clearInterval(analyzeProgressInterval);
+    analyzeProgressInterval = null;
+    isAnalyzing = false;
+    analyzeBtn.disabled = false;
+    resultDiv.innerHTML = `
+      <div class="result-card">
+        <div style="padding:2rem; text-align:center;">
+          <div style="width:48px;height:48px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;color:#dc2626;">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <p style="color:#111827;font-weight:600;margin-bottom:0.5rem;">Analysis Timed Out</p>
+          <p style="color:#6b7280;font-size:0.8125rem;">The request took too long. Please refresh the page and try again.</p>
+        </div>
+      </div>
+    `;
+  }, 45000);
 
   chrome.runtime.sendMessage({ type: "ANALYZE" });
 };
@@ -126,24 +224,36 @@ analyzeBtn.onclick = () => {
 // Listen for results
 chrome.runtime.onMessage.addListener(msg => {
   if (msg.type === "RESULT") {
-    isAnalyzing = false;
-    analyzeBtn.disabled = false;
+    // Clear progress bar animation and timeout
+    if (analyzeProgressInterval) { clearInterval(analyzeProgressInterval); analyzeProgressInterval = null; }
+    if (analyzeTimeoutTimer) { clearTimeout(analyzeTimeoutTimer); analyzeTimeoutTimer = null; }
 
-    lastAnalyzedResume = (resumeBox.value || "").trim();
-    chrome.storage.local.set({ lastAnalyzedResume });
+    // Snap progress bar to 100% for a clean finish before rendering
+    const bar = document.getElementById("analyze-progress-bar");
+    const txt = document.getElementById("analyze-progress-text");
+    if (bar) bar.style.width = "100%";
+    if (txt) txt.textContent = "100%";
 
-    const html = renderHTML(msg.text || "", msg.isEasyApply);
-    if (html) {
-      resultDiv.innerHTML = html;
-      initAccordions();
-      setTimeout(() => {
-        initGenerateButton();
-        initAssistedApplyButton();
-        initRefreshButton();
-      }, 0);
-    } else {
-      resultDiv.innerText = msg.text;
-    }
+    setTimeout(() => {
+      isAnalyzing = false;
+      analyzeBtn.disabled = false;
+
+      lastAnalyzedResume = (resumeBox.value || "").trim();
+      chrome.storage.local.set({ lastAnalyzedResume });
+
+      const html = renderHTML(msg.text || "", msg.isEasyApply);
+      if (html) {
+        resultDiv.innerHTML = html;
+        initAccordions();
+        setTimeout(() => {
+          initGenerateButton();
+          initAssistedApplyButton();
+          initRefreshButton();
+        }, 0);
+      } else {
+        resultDiv.innerText = msg.text;
+      }
+    }, 300);
   }
 });
 
@@ -298,7 +408,10 @@ function renderHTML(text, isEasyApply) {
 
   html += '</div>'; // end lockup
 
-  html += `
+  // Only show "Get Job Ready Resume" for real analysis results, not error/invalid states
+  const isErrorState = /invalid/i.test(decisionLine);
+  if (!isErrorState) {
+    html += `
       <div style="margin-top: 1rem;">
           <button id="btn-generate-resume" class="btn btn-primary" style="width: 100%; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -308,6 +421,7 @@ function renderHTML(text, isEasyApply) {
           </button>
       </div>
     `;
+  }
 
   if (isEasyApply) {
     html += `
@@ -441,18 +555,71 @@ function initGenerateButton() {
     const originalText = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = `
-      <svg class="animate-spin" style="animation: spin 1s linear infinite; margin-right: 0.5rem;" width="18" height="18" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      <svg style="animation: spin 1s linear infinite; margin-right: 0.5rem;" width="18" height="18" fill="none" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-opacity="0.25"></circle>
+        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
-      Generating Resume...
+      Generating Resume…
     `;
+
+    // Inject a progress bar below the button
+    let genProgressContainer = document.getElementById("gen-progress-wrapper");
+    if (!genProgressContainer) {
+      genProgressContainer = document.createElement("div");
+      genProgressContainer.id = "gen-progress-wrapper";
+      genProgressContainer.style.cssText = "margin-top:0.6rem;";
+      genProgressContainer.innerHTML = `
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <div style="flex:1; background:#e5e7eb; border-radius:9999px; height:6px; overflow:hidden;">
+            <div id="gen-progress-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#3b82f6,#1d4ed8); border-radius:9999px; transition:width 0.5s ease;"></div>
+          </div>
+          <span id="gen-progress-text" style="color:#6b7280;font-size:0.75rem;min-width:2.5rem;text-align:right;">0%</span>
+        </div>
+      `;
+      btn.insertAdjacentElement("afterend", genProgressContainer);
+    }
+
+    let genProgress = 0;
+    const genInterval = setInterval(() => {
+      const bar = document.getElementById("gen-progress-bar");
+      const txt = document.getElementById("gen-progress-text");
+      if (!bar || !txt) { clearInterval(genInterval); return; }
+      if (genProgress < 85) {
+        genProgress += Math.random() * 8 + 2;
+        if (genProgress > 85) genProgress = 85;
+        bar.style.width = genProgress.toFixed(0) + "%";
+        txt.textContent = Math.round(genProgress) + "%";
+      }
+    }, 700);
+
+    // 60-second timeout so it never spins forever
+    let genTimedOut = false;
+    const genTimeoutTimer = setTimeout(() => {
+      genTimedOut = true;
+      clearInterval(genInterval);
+      const wrapper = document.getElementById("gen-progress-wrapper");
+      if (wrapper) wrapper.remove();
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      alert("Resume generation timed out. Please try again.");
+    }, 60000);
 
     try {
       // 2. Send Message
       const response = await chrome.runtime.sendMessage({ type: "GENERATE_RESUME" });
 
+      if (genTimedOut) return; // timeout already handled
+      clearTimeout(genTimeoutTimer);
+      clearInterval(genInterval);
+
       if (response && response.success) {
+        // Snap to 100%
+        const bar = document.getElementById("gen-progress-bar");
+        const txt = document.getElementById("gen-progress-text");
+        if (bar) bar.style.width = "100%";
+        if (txt) txt.textContent = "100%";
+        await new Promise(r => setTimeout(r, 300));
+
         // 3. Send Message to Content Script to show modal on main screen
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab) {
@@ -465,12 +632,21 @@ function initGenerateButton() {
         alert("Failed to generate resume: " + (response?.error || "Unknown error"));
       }
     } catch (e) {
-      console.error(e);
-      alert("Error generating resume: " + e.message);
+      if (!genTimedOut) {
+        clearTimeout(genTimeoutTimer);
+        clearInterval(genInterval);
+        console.error(e);
+        alert("Error generating resume: " + e.message);
+      }
     } finally {
-      // 5. Reset
-      btn.disabled = false;
-      btn.innerHTML = originalText;
+      if (!genTimedOut) {
+        clearTimeout(genTimeoutTimer);
+        clearInterval(genInterval);
+        const wrapper = document.getElementById("gen-progress-wrapper");
+        if (wrapper) wrapper.remove();
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
     }
   };
 }

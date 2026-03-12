@@ -40,9 +40,31 @@ function getJD() {
     }
   }
 
-  // Fallback: try to get any visible text from the page
+  // Extended LinkedIn selectors — tried before giving up, no body fallback
   if (!description || description.length < 200) {
-    description = document.body.innerText.slice(0, 8000);
+    const extendedSelectors = [
+      ".jobs-description",
+      ".jobs-description-content",
+      "[class*='jobs-description']",
+      ".scaffold-layout__detail",
+      "[class*='job-view-layout']",
+      ".job-view-layout"
+    ];
+    for (const s of extendedSelectors) {
+      try {
+        const el = document.querySelector(s);
+        if (el && el.innerText && el.innerText.length > 200) {
+          description = el.innerText.trim();
+          break;
+        }
+      } catch (_) {}
+    }
+  }
+
+  // If still no JD, return empty — do NOT fall back to document.body
+  // (body fallback can capture extension-injected content like the resume modal)
+  if (!description || description.length < 200) {
+    return "";
   }
 
   const result = `Job Title: ${title}\n\nJob Description:\n${description}`;
@@ -320,7 +342,35 @@ async function handleSelectInput(select, question) {
   }
 }
 
+function extractTextFromResumeData(data) {
+  const parts = [];
+  if (data?.header) {
+    ['name','email','phone','location','linkedin','portfolio']
+      .forEach(k => { if (data.header[k]) parts.push(data.header[k]); });
+  }
+  if (data?.summary) parts.push(data.summary);
+  if (data?.skills?.length) parts.push(data.skills.join(', '));
+  (data?.experience || []).forEach(exp => {
+    parts.push([exp.role, exp.company, exp.date].filter(Boolean).join(' | '));
+    (exp.points || []).forEach(p => parts.push(p));
+  });
+  (data?.projects || []).forEach(proj => {
+    parts.push(proj.name || '');
+    if (proj.description) parts.push(proj.description);
+    (proj.points || []).forEach(p => parts.push(p));
+  });
+  (data?.education || []).forEach(edu => {
+    parts.push([edu.school, edu.degree, edu.date].filter(Boolean).join(' | '));
+  });
+  return parts.join('\n');
+}
+
 function showResumeModal(data) {
+  // Save generated resume text to storage immediately so that
+  // re-running Analyze uses the tailored resume, not the original.
+  const generatedText = extractTextFromResumeData(data);
+  chrome.storage.local.set({ resumeText: generatedText, lastAnalyzedResume: '' });
+
   // Remove existing modal if any
   const existing = document.getElementById("ca-resume-modal-root");
   if (existing) existing.remove();
@@ -577,54 +627,171 @@ function showResumeModal(data) {
   }
 
   shadow.getElementById("ca-download-btn").onclick = () => {
-    // 1. Create a temporary container in the main document
-    // This is needed because html2canvas has trouble rendering content inside Shadow DOM
-    const tempContainer = document.createElement("div");
-    tempContainer.style.position = "absolute";
-    tempContainer.style.left = "-9999px";
-    tempContainer.style.top = "0";
-    tempContainer.style.width = "8.5in";
-    tempContainer.style.background = "white";
-    tempContainer.style.zIndex = "-1";
-
-    const templateClass = `template-${selectedTemplate}`;
-    tempContainer.innerHTML = `
-      <style>${resumeStyles}</style>
-      <div class="page ${templateClass}">${getResumeHTML(data, selectedTemplate)}</div>
-    `;
-    document.body.appendChild(tempContainer);
-
-    // Target the .page element specifically for better accuracy
-    const element = tempContainer.querySelector('.page');
-
-    const opt = {
-      margin: [0, 0, 0, 0],
-      filename: `Resume_${(data?.header?.name || "Candidate").replace(/\s+/g, '_')}_${selectedTemplate}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        letterRendering: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-
-    // Add a small delay to ensure the browser has calculated styles and layout
-    setTimeout(() => {
-      html2pdf().set(opt).from(element).save().then(() => {
-        // Clean up the temporary container
-        document.body.removeChild(tempContainer);
-      }).catch(err => {
-        console.error("PDF Export Error:", err);
-        document.body.removeChild(tempContainer);
-      });
-    }, 150);
+    generateTextPDF(data);
   };
 
   // Prevent background scroll
   document.body.style.overflow = "hidden";
+}
+
+function generateTextPDF(data) {
+  // Pure JS text-based PDF — no libraries, fully ATS-parseable.
+  const PW = 612, PH = 792, ML = 50, MR = 50, MT = 50, MB = 50;
+  const CW = PW - ML - MR;
+
+  const UMAP = {
+    '\u2022':'*','\u2013':'-','\u2014':'-','\u2019':"'",'\u2018':"'",
+    '\u201C':'"','\u201D':'"','\u2026':'...','\u00A0':' ',
+    '\u2010':'-','\u2011':'-','\u2012':'-','\u00B7':'*',
+  };
+  const san = s => (s || '').replace(/[^\x20-\x7E]/g, c => UMAP[c] || '');
+  const tw  = (s, sz, bold) => s.length * sz * (bold ? 0.57 : 0.52);
+  const wrap = (text, maxW, sz, bold) => {
+    const words = san(text).split(' ');
+    const lines = []; let cur = '';
+    for (const w of words) {
+      const t = cur ? cur + ' ' + w : w;
+      if (tw(t, sz, bold) > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [''];
+  };
+
+  const pages = [[]]; let y = PH - MT;
+  const newPage = () => { pages.push([]); y = PH - MT; };
+  const chk = h => { if (y - h < MB) newPage(); };
+  const addText = (x, yy, str, sz, bold, r=0, g=0, b=0) =>
+    pages[pages.length-1].push({ x, y: yy, text: san(str), sz, bold, r, g, b });
+  const addRule = (x1, yy, x2, r=30, g=64, b=175) =>
+    pages[pages.length-1].push({ type:'line', x1, y: yy, x2, r, g, b });
+
+  const secTitle = title => {
+    chk(28); y -= 8;
+    addText(ML, y, title.toUpperCase(), 10, true, 30, 64, 175);
+    addRule(ML, y - 3, ML + CW);
+    y -= 16;
+  };
+  const para = (str, sz, bold, r=0, g=0, b=0, indent=0) => {
+    if (!str) return;
+    for (const l of wrap(str, CW - indent, sz, bold)) {
+      chk(sz + 4); addText(ML + indent, y, l, sz, bold, r, g, b); y -= (sz + 3);
+    }
+  };
+
+  // Name
+  chk(30);
+  const nameStr = san(data?.header?.name || '');
+  addText(ML + (CW - tw(nameStr, 20, true)) / 2, y, nameStr, 20, true);
+  y -= 24;
+
+  // Contact
+  const contact = [data?.header?.email, data?.header?.phone, data?.header?.location,
+    data?.header?.linkedin, data?.header?.portfolio].filter(Boolean).map(san).join('  |  ');
+  if (contact) {
+    for (const cl of wrap(contact, CW, 9, false)) {
+      addText(ML + (CW - tw(cl, 9, false)) / 2, y, cl, 9, false, 55, 65, 81);
+      y -= 12;
+    }
+  }
+
+  // Summary
+  if (data?.summary) { secTitle('Professional Summary'); para(data.summary, 10, false); }
+
+  // Skills
+  if (data?.skills?.length) { secTitle('Core Competencies'); para(data.skills.join('  *  '), 10, false); }
+
+  // Experience
+  if (data?.experience?.length) {
+    secTitle('Professional Experience');
+    for (const exp of data.experience) {
+      chk(32);
+      addText(ML, y, san(exp.role || ''), 10.5, true);
+      if (exp.date) { const d=san(exp.date); addText(ML+CW-tw(d,9.5,false), y, d, 9.5, false, 107,114,128); }
+      y -= 13; chk(13);
+      addText(ML, y, san(exp.company || ''), 9.5, false, 80, 80, 80);
+      y -= 13;
+      for (const pt of (exp.points||[])) para('*  '+pt, 9.5, false, 0,0,0, 8);
+      y -= 5;
+    }
+  }
+
+  // Projects
+  if (data?.projects?.length) {
+    secTitle('Key Projects');
+    for (const proj of data.projects) {
+      chk(26);
+      addText(ML, y, san(proj.name||''), 10.5, true); y -= 13;
+      if (proj.link) { chk(11); addText(ML, y, san(proj.link), 9, false, 37,99,235); y -= 11; }
+      if (proj.description) para(proj.description, 9.5, false, 80,80,80);
+      for (const pt of (proj.points||[])) para('*  '+pt, 9.5, false, 0,0,0, 8);
+      y -= 5;
+    }
+  }
+
+  // Education
+  if (data?.education?.length) {
+    secTitle('Education');
+    for (const edu of data.education) {
+      chk(26);
+      addText(ML, y, san(edu.school||''), 10.5, true);
+      if (edu.date) { const d=san(edu.date); addText(ML+CW-tw(d,9.5,false), y, d, 9.5, false, 107,114,128); }
+      y -= 13; chk(13);
+      addText(ML, y, san(edu.degree||''), 10, false); y -= 14;
+    }
+  }
+
+  // PDF assembly
+  const NP = pages.length;
+  const F1=NP+1, F2=NP+2, PAGES=2*NP+3, CAT=2*NP+4, TOTAL=CAT;
+  const fp2 = n => n.toFixed(2);
+  const fp3 = n => n.toFixed(3);
+  const esc = s => s.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+
+  const objBody = {};
+  for (let i = 0; i < NP; i++) {
+    let s = '';
+    for (const item of pages[i]) {
+      if (item.type === 'line') {
+        s += `${fp3(item.r/255)} ${fp3(item.g/255)} ${fp3(item.b/255)} RG 0.75 w `;
+        s += `${fp2(item.x1)} ${fp2(item.y)} m ${fp2(item.x2)} ${fp2(item.y)} l S\n`;
+      } else {
+        s += `BT /${item.bold?'F2':'F1'} ${item.sz} Tf `;
+        s += `${fp3(item.r/255)} ${fp3(item.g/255)} ${fp3(item.b/255)} rg `;
+        s += `${fp2(item.x)} ${fp2(item.y)} Td (${esc(item.text)}) Tj ET\n`;
+      }
+    }
+    objBody[i+1] = `<< /Length ${s.length} >>\nstream\n${s}endstream`;
+  }
+  objBody[F1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+  objBody[F2] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+  for (let i = 0; i < NP; i++) {
+    objBody[NP+3+i] = `<< /Type /Page /Parent ${PAGES} 0 R /MediaBox [0 0 ${PW} ${PH}] `
+      + `/Contents ${i+1} 0 R /Resources << /Font << /F1 ${F1} 0 R /F2 ${F2} 0 R >> >> >>`;
+  }
+  const kids = Array.from({length:NP},(_,i)=>`${NP+3+i} 0 R`).join(' ');
+  objBody[PAGES] = `<< /Type /Pages /Kids [${kids}] /Count ${NP} >>`;
+  objBody[CAT]   = `<< /Type /Catalog /Pages ${PAGES} 0 R >>`;
+
+  let out = '%PDF-1.4\n';
+  const offsets = [];
+  for (let id = 1; id <= TOTAL; id++) { offsets.push(out.length); out += `${id} 0 obj\n${objBody[id]}\nendobj\n`; }
+  const xrefPos = out.length;
+  out += `xref\n0 ${TOTAL+1}\n0000000000 65535 f \n`;
+  for (const off of offsets) out += off.toString().padStart(10,'0') + ' 00000 n \n';
+  out += `trailer\n<< /Size ${TOTAL+1} /Root ${CAT} 0 R >>\nstartxref\n${xrefPos}\n%%EOF`;
+
+  // Encode as base64 data URI (avoids blob: URL restrictions in content scripts)
+  const bytes = new Uint8Array(out.length);
+  for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 0xff;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const dataUri = 'data:application/pdf;base64,' + btoa(binary);
+  const a = document.createElement('a');
+  a.href = dataUri;
+  a.download = `${(data?.header?.name || 'Resume').replace(/\s+/g,'_')}_Resume.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function getResumeHTML(data, template = "modern") {

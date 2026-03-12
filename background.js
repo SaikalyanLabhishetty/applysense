@@ -15,14 +15,16 @@ chrome.runtime.onMessage.addListener(async (msg) => {
       return;
     }
 
-    const trySendMessage = (tabId) => {
+    const trySendMessage = (tabId, retries = 4) => {
       chrome.tabs.sendMessage(tabId, { type: "GET_JD" }, async res => {
         if (chrome.runtime.lastError) {
-          // If we are on a valid LinkedIn job view page, don't show the error as requested by the user.
-          if (tab.url.includes("/jobs/view/") || tab.url.includes("job-listings") || tab.url.includes("currentJobId=")) {
-            console.log("Suppressed lastError because user is on a valid job URL");
+          if (retries > 0) {
+            // Content script may not be injected yet — retry with back-off
+            console.log(`Content script not ready, retrying... (${retries} attempts left)`);
+            setTimeout(() => trySendMessage(tabId, retries - 1), 1500);
             return;
           }
+          // All retries exhausted — always send a RESULT so the sidepanel never stays stuck
           chrome.runtime.sendMessage({ type: "RESULT", text: "Match: 0%\nDecision: Invalid Page\n\nPlease Refresh:\n- The extension needs to reload on this page\n- Please refresh the page and try again" });
           return;
         }
@@ -239,14 +241,70 @@ async function generateResumeJSON(jd, resume) {
     body: JSON.stringify({
       model: "gemini-2.0-flash",
       systemInstruction: {
-        parts: [{ text: "You are an elite career strategist and expert ATS resume optimizer. You rewrite resumes to be 'Job Ready' for specific job descriptions." }]
+        parts: [{ text: "You are a world-class ATS resume transformation engine and career strategist. Your sole purpose is to rewrite resumes so they score 90%+ on applicant tracking systems for a specific job description. You are surgical, aggressive, and precise. You never leave a single bullet point or project description generic — every sentence must earn its place by matching the JD's language, keywords, and priorities." }]
       },
       contents: [{
         parts: [{
           text: `
-You are rewriting a user's resume to specifically target a Job Description.
+## YOUR MISSION
+Transform the candidate's resume into a 90%+ ATS match for the job description below. You will do this by deeply analyzing the JD, extracting its core language, and injecting that language into every section of the resume.
 
-Target: create a "Job Ready" resume that is fully optimized for the proprietary ATS of the target company.
+---
+
+## STEP 1 — DEEP JD ANALYSIS (do this mentally before writing)
+Extract and internalize:
+- **Top 10 must-have keywords/skills** (the exact words that an ATS will scan for)
+- **Top 5 action verbs** used in the JD responsibilities section
+- **Core technical stack** the role requires (tools, frameworks, platforms, languages)
+- **3 primary responsibilities** the candidate will spend 70%+ of their time on
+- **Soft skills / methodologies** mentioned (Agile, cross-functional, stakeholder, etc.)
+
+---
+
+## STEP 2 — REWRITE RULES (apply to every section)
+
+### SUMMARY
+- Write a 3-sentence elevator pitch that opens with the candidate's title matching the JD's job title, then hits the top 3 JD requirements with exact keyword phrases, then closes with a value statement.
+- Must include at least 5 keywords directly from the JD.
+
+### SKILLS
+- List every hard skill, tool, framework, platform, and methodology from the JD that the candidate plausibly has.
+- Include skills that appear in their existing experience even if not explicitly listed.
+- Do NOT include technologies completely absent from both the JD and the resume.
+
+### EXPERIENCE — THIS IS THE MOST IMPORTANT SECTION
+For EVERY job role, preserve the **role title, company name, and date range exactly as in the source resume — do not alter them under any circumstances**. Only rewrite the bullet points following these rules:
+- **RULE 1 — JD Keyword Injection**: Every single bullet MUST contain at least one exact keyword, tool name, or technology from the JD. No generic bullets allowed.
+- **RULE 2 — STAR Format**: Write each bullet as an implied STAR (what you did + what tool/method + measurable result). Example: "Engineered real-time data pipelines using Apache Kafka and Python, reducing processing latency by 40% and supporting 2M+ daily events."
+- **RULE 3 — JD Verb Mirror**: Use the same action verbs the JD uses (if JD says "architect", use "Architected"; if JD says "collaborate", use "Collaborated with cross-functional teams").
+- **RULE 4 — Quantify Everything**: Add realistic metrics to every bullet where plausible (%, ms, users, team size, revenue, uptime). If no metric exists, add scope (e.g., "across 3 microservices", "for an 8-member team").
+- **RULE 5 — Specifize Generic Claims**: Never leave vague statements. "Worked on backend APIs" → "Designed and deployed RESTful APIs in [JD language stack] handling [X] requests/day with 99.9% uptime."
+- Produce exactly 5 bullets per role.
+
+### PROJECTS — SECOND MOST IMPORTANT SECTION
+For EVERY project, do ALL of the following:
+- **Rewrite the project name** if needed to sound more relevant to the JD (keep it honest but position it better).
+- **Rewrite the description** (the short 1-line summary) to explicitly mention the JD's core domain, e.g. if JD is about fintech APIs, say "Built a [fintech/payment/relevant] system using [JD tech stack]…".
+- **Rewrite ALL bullet points** using the same STAR + JD keyword rules as experience bullets.
+- **Add the JD's core tech stack** to the project's description if the project plausibly used those technologies.
+- Produce exactly 3 bullets per project.
+
+### EDUCATION
+- Keep as-is. Preserve all entries, degrees, schools, and dates exactly.
+
+---
+
+## HARD CONSTRAINTS
+- Do NOT invent fake companies, fake jobs, or fake projects.
+- **NEVER change company names** — copy them exactly as they appear in the source resume, character for character.
+- **NEVER change job title names** — copy them exactly as they appear in the source resume.
+- **NEVER change date ranges / years of experience** — copy them exactly as they appear in the source resume.
+- Only the bullet points and descriptions are rewritten. The role, company, and date fields are sacred and must be preserved verbatim.
+- DO aggressively rephrase, expand, reframe, quantify, and inject JD language into REAL experience and projects.
+- Every section output must read as if it was written specifically for this exact job posting.
+- The finished resume must contain the JD's top 10 keywords at least 2x each across all sections combined.
+
+---
 
 Job Description:
 ${jd}
@@ -254,26 +312,13 @@ ${jd}
 Original Resume:
 ${resume}
 
-CRITICAL INSTRUCTIONS:
-1. **Analyze Gaps**: Identify skills, keywords, and specific methodologies present in the JD but missing from the resume.
-2. **Aggressive Integration**: You MUST add these missing skills and "minute details" (specific tools, versions, protocols mentioned in JD) into the resume. 
-   - Add them to the "Skills" section.
-   - Weave them into "Experience" bullets where they plausibly fit the user's history (e.g., if JD asks for "Jira", and user has generic "project management", verify it as "Agile Project Management using Jira").
-3. **ATS Format**: Keep the structure clean. Use standard headings.
-4. **Summary**: Rewrite the summary to be a powerful elevator pitch that hits the top 3 requirements of the JD.
-5. **No Hallucinations**: Do not invent completely false jobs or companies. But DO rephrase, expand, and specificize existing experience to match the JD's language perfectly.
-6. **Experience Completeness**:
-  - Include ALL resume experience entries found in the source resume (do not keep only one).
-  - For each role, provide 4-6 concise impact bullets where evidence exists.
-7. **Projects Completeness**:
-  - Include ALL real projects present in the source resume.
-  - If at least 3 real projects are present in the source resume, return at least 3 projects.
-  - Do not invent fake projects; when fewer than 3 exist in source resume, return only real ones.
-8. **Education Completeness**:
-  - Include ALL education entries present in the source resume (do not keep only one).
-  - Preserve degree, school, and year/date for each entry when available.
-9. **Strict JSON Output**:
-  - Return ONLY valid JSON. No markdown, no commentary, no code fences.
+---
+
+COMPLETENESS RULES:
+- Include ALL experience roles from the source resume (never drop any).
+- Include ALL projects from the source resume (never drop any).
+- Include ALL education entries from the source resume.
+- Strict JSON output only — no markdown, no code fences, no commentary.
 
 Return content in this JSON structure:
 {
@@ -314,7 +359,7 @@ Return content in this JSON structure:
       }],
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.3
+        temperature: 0.2
       }
     })
   });

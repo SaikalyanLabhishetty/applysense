@@ -33,11 +33,35 @@ function getNaukriJD() {
         }
     }
 
-    // Fallback
+    // Extended selectors for current Naukri DOM — tried in order, no body fallback
     if (!description || description.length < 200) {
-        // Try getting text from the main container if specific class fails
-        const mainContainer = document.querySelector('.left-section') || document.body;
-        description = mainContainer.innerText.slice(0, 8000);
+        const extendedSelectors = [
+            "[class*='job-desc']",
+            "[class*='jobDescription']",
+            "[class*='jd-desc']",
+            "[class*='description']",
+            ".styles_job-desc-container__txpYf",
+            ".styles_jhc__jd-desc__R2lpb",
+            "[class*='jhc__jd']",
+            ".jd-container",
+            ".jd-inner",
+            "section[class*='detail']"
+        ];
+        for (const s of extendedSelectors) {
+            try {
+                const el = document.querySelector(s);
+                if (el && el.innerText && el.innerText.length > 200) {
+                    description = el.innerText.trim();
+                    break;
+                }
+            } catch (_) {}
+        }
+    }
+
+    // If still no JD found, return empty — do NOT fall back to document.body
+    // (body fallback can capture extension-injected content like the resume modal)
+    if (!description || description.length < 200) {
+        return "";
     }
 
     const result = `Job Title: ${title}\n\nJob Description:\n${description}`;
