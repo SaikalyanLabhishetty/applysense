@@ -739,9 +739,8 @@ function showResumeModal(data) {
       printWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
         <title>Resume</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { background: white; font-family: 'Inter', sans-serif; }
+          body { background: white; font-family: Arial, sans-serif; }
           .page-break-marker { page-break-before: always; break-before: page; border: none; }
           .page-break-marker::before { display: none; }
           @page { margin: 0.5in; size: letter; }
@@ -749,9 +748,9 @@ function showResumeModal(data) {
         <style>${resumeStyles.replace(/@page[^}]*}/, '')}</style>
         </head><body>
         <div class="page template-${selectedTemplate}">${editedHTML}</div>
-        <script>window.onload=function(){window.print();}<\/script>
         </body></html>`);
       printWin.document.close();
+      printWin.onload = () => { printWin.print(); };
     } else {
       generateTextPDF(data);
     }

@@ -1,0 +1,8 @@
+{
+  "name": "applysure",
+  "version": "1.0.0",
+  "description": "ApplySure Chrome Extension",
+  "scripts": {
+    "zip": "rm -rf dist && mkdir -p dist && zip -r dist/applysure.zip . --exclude '*.git*' --exclude 'api/*' --exclude 'vercel.json' --exclude 'node_modules/*' --exclude '*.md' --exclude 'privacy_policy.txt' --exclude 'assets/screenshots/*' --exclude 'dist/*' --exclude '*.zip' --exclude 'package.json' --exclude 'package-lock.json' --exclude '.gitignore'"
+  }
+}

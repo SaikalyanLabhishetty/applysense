@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ApplySure",
-  "version": "2.0",
-  "description": "Instantly analyze how well your resume matches any LinkedIn or Naukri job — get ATS score, skill gaps, and a tailored job-ready resume in one click.",
+  "version": "1.0",
+  "description": "Analyze your resume vs LinkedIn & Naukri jobs. Get ATS score, skill gaps, and a tailored job-ready resume in seconds.",
   "icons": {
     "16": "assets/image-16x16.png",
     "32": "assets/image-32x32.png",
@@ -16,9 +16,6 @@
     "sidePanel"
   ],
   "host_permissions": [
-    "https://api.mistral.ai/*",
-    "https://api.openai.com/*",
-    "https://api.groq.com/*",
     "https://applysure.vercel.app/*",
     "*://*.linkedin.com/*",
     "*://*.naukri.com/*"
@@ -45,20 +42,8 @@
         "*://*.naukri.com/*"
       ],
       "js": [
-        "html2pdf.bundle.min.js",
         "naukri.js",
         "content.js"
-      ]
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "pdf.min.js",
-        "pdf.worker.min.js"
-      ],
-      "matches": [
-        "*://*/*"
       ]
     }
   ]
