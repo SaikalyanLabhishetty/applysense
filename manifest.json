@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ApplySure",
-  "version": "1.0",
+  "version": "1.0.1",
   "description": "Analyze your resume vs LinkedIn & Naukri jobs. Get ATS score, skill gaps, and a tailored job-ready resume in seconds.",
   "icons": {
     "16": "assets/image-16x16.png",
